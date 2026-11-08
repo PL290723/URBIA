@@ -1,0 +1,97 @@
+# ========================================
+# 1. Entorno y Secrets
+# ========================================
+# Mantener secretos fuera del repositorio
+.env
+.env.*
+*.pem
+*.key
+secrets/
+config/secret*.json
+
+# ========================================
+# 2. Golang (API Principal)
+# ========================================
+# Binarios compilados
+/backend-go/bin/
+/backend-go/main
+/backend-go/*.exe
+/backend-go/*.exe~
+/backend-go/*.dll
+/backend-go/*.so
+/backend-go/*.dylib
+
+# Dependencias (si llegamos a usar vendor)
+/backend-go/vendor/
+
+# Archivos de test temporales
+*.test
+*.out
+
+# ========================================
+# 3. Python (Servicio de Inferencia)
+# ========================================
+# Caché de bytes
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+/inference-python/venv/
+/inference-python/.venv/
+/inference-python/env/
+/inference-python/ENV/
+
+# Herramientas de Python
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# ========================================
+# 4. Machine Learning y Visión (YOLO / PyTorch)
+# ========================================
+# Pesos del modelo (suelen ser archivos muy pesados)
+*.pt
+*.pth
+*.onnx
+*.weights
+/inference-python/models/
+/inference-python/weights/
+
+# Datasets y salidas de entrenamiento de Ultralytics/YOLO
+datasets/
+runs/
+yolov8n.pt  # (O cualquier versión base que descargues)
+
+# ========================================
+# 5. Archivos de la Aplicación (Volúmenes y temporales)
+# ========================================
+# Volumen persistente de Docker para imágenes originales y procesadas.
+storage/
+uploads/
+/database/data/  # Si mapeas el volumen de PostgreSQL a una carpeta local
+temp/
+tmp/
+*.log
+
+# ========================================
+# 6. IDEs y Sistema Operativo
+# ========================================
+# Neovim / Vim
+*.swp
+*.swo
+
+# JetBrains (GoLand, PyCharm, DataGrip)
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Windows / Linux / macOS
+Thumbs.db
+desktop.ini
+.DS_Store
