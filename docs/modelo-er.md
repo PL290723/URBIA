@@ -6,9 +6,9 @@
 
 ## 1. Diagrama entidad-relación (notación Chen)
 
-![Diagrama E-R de URBIA](./diagramas/urbia-er.png)
+![Diagrama E-R de URBIA](./urbia-er.png)
 
-Fuente editable: [`diagramas/urbia-er.drawio`](./diagramas/urbia-er.drawio)
+Fuente editable: [`urbia-er.drawio`](./urbia-er.drawio)
 
 **Cómo leer el diagrama**
 
