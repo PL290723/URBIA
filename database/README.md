@@ -48,3 +48,22 @@ psql -U urbia_app   -d urbia -f database/scripts/04_prueba_espacial.sql
 |---|---|---|
 | `urbia_owner` | Migraciones | Crear y modificar tablas del esquema `urbia` |
 | `urbia_app` | Backend | Solo `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+
+## Migraciones (goose)
+
+Instalar: `go install github.com/pressly/goose/v3/cmd/goose@latest`
+
+Configurar: dentro de `database/`, copiar `.env.example` a `.env` y poner la contraseña de `urbia_owner`.
+
+| Comando | Qué hace |
+|---|---|
+| `goose status` | Muestra migraciones aplicadas y pendientes |
+| `goose up` | Aplica todas las pendientes |
+| `goose down` | Revierte la última |
+| `goose down-to 0` | Revierte todas |
+| `goose -s create nombre sql` | Crea una migración nueva |
+
+Reglas:
+- Nunca editar una migración que ya está en `develop`; crear una nueva.
+- Toda migración lleva `-- +goose Up` y `-- +goose Down`.
+- `03_esquema.sql` se reemplazó por `migrations/00001_esquema_inicial.sql`.

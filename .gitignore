@@ -8,6 +8,8 @@
 *.key
 secrets/
 config/secret*.json
+database/.env
+backend-go/.env
 
 # ========================================
 # 2. Golang (API Principal)
