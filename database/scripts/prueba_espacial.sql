@@ -9,8 +9,7 @@ BEGIN;
 INSERT INTO usuario (nombre, correo, hash_contrasena)
 VALUES ('Usuario Prueba', 'prueba@urbia.mx', 'hash_de_prueba');
 
-INSERT INTO categoria (nombre, descripcion)
-VALUES ('Bache', 'Daño en el pavimento');
+
 
 -- ST_MakePoint(longitud, latitud)  ← el orden es lon, lat
 INSERT INTO reporte (id_usuario, id_categoria, descripcion, ubicacion)
@@ -22,7 +21,7 @@ FROM usuario u, categoria c,
         ('Bache en el Jardín Principal',         -100.8157, 20.5235),
         ('Bache en la salida a Querétaro',       -100.7700, 20.5560)
      ) AS d(descripcion, lon, lat)
-WHERE u.correo = 'prueba@urbia.mx' AND c.nombre = 'Bache';
+WHERE u.correo = 'prueba@urbia.mx' AND c.nombre = 'bache';
 
 -- (ubicacion se guarda como geometry; ::geography hace que la distancia sea en metros)
 -- 1) Reportes a menos de 3 km del TecNM Celaya, ordenados por distancia (metros)
