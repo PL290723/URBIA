@@ -86,7 +86,7 @@ La columna **Nulo** dice si la columna acepta `NULL` (`No` = `NOT NULL`).
 | *id_categoria* | `SMALLINT` | Sí | `fk_reporte_categoria` → `categoria(id_categoria)` |
 | descripcion | `TEXT` | No | `ck_reporte_descripcion`: `length(trim(descripcion)) BETWEEN 10 AND 1000` |
 | ubicacion | `GEOMETRY(Point, 4326)` | No | Tipo PostGIS, en coordenadas WGS84 (las del GPS) |
-| estado | `VARCHAR(20)` | No | `DEFAULT 'pendiente'`; `ck_reporte_estado`: `estado IN ('pendiente', 'en_revision', 'en_proceso', 'resuelto', 'rechazado')` |
+| estado | `VARCHAR(20)` | No | `DEFAULT 'pendiente'`; `ck_reporte_estado`: `ck_reporte_estado: estado IN ('pendiente', 'en_revision', 'en_proceso', 'resuelto')` |
 | prioridad | `VARCHAR(10)` | No | `DEFAULT 'media'`; `ck_reporte_prioridad`: `prioridad IN ('baja', 'media', 'alta')` |
 | fecha_creacion | `TIMESTAMPTZ` | No | `DEFAULT now()` |
 | fecha_actualizacion | `TIMESTAMPTZ` | No | `DEFAULT now()`; `ck_reporte_fechas`: `fecha_actualizacion >= fecha_creacion` |
@@ -182,4 +182,4 @@ PostgreSQL crea un índice automáticamente para cada PK y cada UNIQUE, pero **n
 
 - **02.2 — Crear PostgreSQL con PostGIS:** habilitar `CREATE EXTENSION postgis;` antes de crear `reporte`.
 - **02.3 — Implementar migraciones:** convertir este documento en el script DDL, respetando los nombres de las restricciones.
-- **02.4 — Definir estados, roles y categorías:** confirmar los valores de los CHECK de `rol`, `estado` y `prioridad`, y cargar las categorías iniciales.
+- **02.4 — Definir estados, roles y categorías:** completada. Estados y transiciones en la migración `00003`; ver `database/README.md`.
