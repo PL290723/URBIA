@@ -17,6 +17,8 @@ type Config struct {
 	LogLevel        string
 	DatabaseURL     string
 	ShutdownTimeout time.Duration
+	JWTSecret       string
+	JWTTTL          time.Duration
 }
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
@@ -57,6 +59,17 @@ func Load() (*Config, error) {
 	if !oneOf(cfg.LogLevel, "debug", "info", "warn", "error") {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL inválido: %q", cfg.LogLevel))
 	}
+
+	cfg.JWTSecret = os.Getenv("JWT_SECRET")
+	if len(cfg.JWTSecret) < 32 {
+		errs = append(errs, errors.New("JWT_SECRET es obligatoria y debe tener al menos 32 caracteres"))
+	}
+
+	ttl, err := time.ParseDuration(getEnv("JWT_TTL", "2h"))
+	if err != nil || ttl <= 0 {
+		errs = append(errs, errors.New("JWT_TTL inválido (ejemplo: 2h)"))
+	}
+	cfg.JWTTTL = ttl
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)

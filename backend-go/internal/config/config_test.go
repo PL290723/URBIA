@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoad_FaltaDatabaseURL(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
@@ -20,11 +23,20 @@ func TestLoad_PortInvalido(t *testing.T) {
 func TestLoad_Valido(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
 	t.Setenv("PORT", "9090")
+	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("error inesperado: %v", err)
 	}
 	if cfg.Port != 9090 {
 		t.Fatalf("PORT = %d, se esperaba 9090", cfg.Port)
+	}
+}
+
+func TestLoad_JWTSecretCorto(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
+	t.Setenv("JWT_SECRET", "corto")
+	if _, err := Load(); err == nil {
+		t.Fatal("se esperaba error por JWT_SECRET corto")
 	}
 }
