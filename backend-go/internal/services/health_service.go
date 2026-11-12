@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/PL290723/URBIA/backend-go/internal/models"
+	"github.com/PL290723/URBIA/backend-go/internal/repositories"
 )
 
 type HealthService struct {
