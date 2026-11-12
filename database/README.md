@@ -67,3 +67,61 @@ Reglas:
 - Nunca editar una migración que ya está en `develop`; crear una nueva.
 - Toda migración lleva `-- +goose Up` y `-- +goose Down`.
 - `03_esquema.sql` se reemplazó por `migrations/00001_esquema_inicial.sql`.
+
+## Estados, roles y categorías (HU 02.4)
+
+### Estados de un reporte
+
+| Estado | Significado |
+|---|---|
+| `pendiente` | Reporte recién creado |
+| `en_revision` | Un administrador lo está revisando |
+| `en_proceso` | Se está atendiendo |
+| `resuelto` | Atendido (estado final) |
+
+Transiciones permitidas (tabla `transicion_estado`):
+
+```
+pendiente → en_revision → en_proceso → resuelto
+```
+
+El trigger `tg_reporte_transicion_estado` rechaza cualquier otro cambio, y el
+backend valida lo mismo en `backend-go/internal/dominio`.
+
+### Roles
+
+| Rol | Puede |
+|---|---|
+| `ciudadano` | Crear reportes y consultar los suyos |
+| `administrador` | Cambiar el estado de los reportes |
+
+### Cómo agregar una categoría
+
+1. Crea una migración nueva: `goose -s create agregar_categoria_<nombre> sql`
+2. Escribe el `INSERT` en la sección Up y el `DELETE` en la sección Down:
+
+```sql
+   -- +goose Up
+   SET LOCAL search_path = urbia, public;
+   INSERT INTO categoria (nombre, descripcion)
+   VALUES ('semaforo_danado', 'Semáforo apagado o con falla')
+   ON CONFLICT DO NOTHING;
+
+   -- +goose Down
+   SET LOCAL search_path = urbia, public;
+   DELETE FROM categoria WHERE nombre = 'semaforo_danado';
+```
+
+3. Aplica con `goose up` y verifica con `goose redo`.
+
+Reglas: nombre en minúsculas con guion bajo y sin acentos. Para dar de baja
+una categoría se usa `UPDATE categoria SET activo = FALSE`, nunca `DELETE`,
+porque puede haber reportes que la usan.
+
+### Cómo agregar un estado o un rol
+
+Requiere cambiar la base y el backend juntos:
+
+1. Una migración que modifique el CHECK (`ck_estado_reporte` o `ck_usuario_rol`).
+2. Si es un estado, sus filas en `transicion_estado`.
+3. La constante y el mapa de transiciones en `backend-go/internal/dominio`.
