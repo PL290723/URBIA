@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,8 @@ func Logger(log *slog.Logger) gin.HandlerFunc {
 			log.Error("solicitud", attrs...)
 		case status >= 400:
 			log.Warn("solicitud", attrs...)
+		case strings.HasPrefix(c.Request.URL.Path, "/api/v1/health") || c.Request.URL.Path == "/api/health":
+			log.Debug("solicitud", attrs...) // Docker lo consulta seguido; no saturar el log
 		default:
 			log.Info("solicitud", attrs...)
 		}
