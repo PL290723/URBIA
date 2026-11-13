@@ -45,3 +45,10 @@ func HandleError(c *gin.Context, err error) {
 	_ = c.Error(err) // el middleware de logging lo registra
 	Error(c, http.StatusInternalServerError, CodeInternal, "Ocurrió un error inesperado")
 }
+
+func UnsupportedMediaType(msg string) *AppError {
+	return &AppError{Status: http.StatusUnsupportedMediaType, Code: CodeUnsupportedMedia, Message: msg}
+}
+func UnprocessableImage(msg string) *AppError {
+	return &AppError{Status: http.StatusUnprocessableEntity, Code: CodeInvalidImage, Message: msg}
+}

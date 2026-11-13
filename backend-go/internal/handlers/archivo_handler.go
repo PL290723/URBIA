@@ -3,9 +3,9 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 
@@ -54,6 +54,11 @@ func (h *ArchivoHandler) Subir(c *gin.Context) {
 		return
 	}
 
+	if !nombreArchivoValido(fh.Filename) {
+		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "Nombre de archivo inválido")
+		return
+	}
+
 	f, err := fh.Open()
 	if err != nil {
 		response.HandleError(c, err)
@@ -61,15 +66,9 @@ func (h *ArchivoHandler) Subir(c *gin.Context) {
 	}
 	defer f.Close()
 
-	mime, err := detectarMIME(f) // por contenido; fh.Filename y el Content-Type del cliente se ignoran
-	if err != nil {
-		response.HandleError(c, err)
-		return
-	}
-
-	a, err := h.svc.Guardar(c.Request.Context(), sesion, services.NuevoArchivo{
-		IDReporte: idReporte, MIME: mime, Contenido: f,
-	})
+	// El nombre, la extensión y el Content-Type del cliente se ignoran:
+	// el formato se decide por el contenido real en imagenes.Saneador.
+	a, err := h.svc.Guardar(c.Request.Context(), sesion, idReporte, f)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -119,14 +118,20 @@ func (h *ArchivoHandler) Eliminar(c *gin.Context) {
 	response.NoContent(c)
 }
 
-func detectarMIME(f multipart.File) (string, error) {
-	cabecera := make([]byte, 512)
-	n, err := io.ReadFull(f, cabecera)
-	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return "", fmt.Errorf("leer cabecera: %w", err)
+// nombreArchivoValido rechaza nombres manipulados. El nombre nunca se usa para
+// guardar (se genera uno aleatorio), esto es defensa adicional. Go ya aplica
+// filepath.Base al nombre del multipart.
+func nombreArchivoValido(nombre string) bool {
+	if nombre == "" || nombre == "." || nombre == ".." || len(nombre) > 255 || !utf8.ValidString(nombre) {
+		return false
 	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return "", fmt.Errorf("rebobinar archivo: %w", err)
+	if strings.ContainsAny(nombre, `/\:`) { // separadores y flujos alternos de NTFS (foto.jpg:oculto)
+		return false
 	}
-	return http.DetectContentType(cabecera[:n]), nil
+	for _, r := range nombre {
+		if r < 0x20 || r == 0x7f { // caracteres de control, incluido el byte nulo
+			return false
+		}
+	}
+	return true
 }
