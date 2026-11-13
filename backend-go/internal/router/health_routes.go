@@ -8,4 +8,5 @@ import (
 
 func registerHealthRoutes(rg *gin.RouterGroup, h *handlers.HealthHandler) {
 	rg.GET("/health", h.Check)
+	rg.GET("/health/live", h.Live)
 }
