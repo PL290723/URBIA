@@ -14,6 +14,16 @@ const (
 // TamanoMaximoArchivo coincide con ck_archivo_tamano (10 MiB).
 const TamanoMaximoArchivo int64 = 10 << 20
 
+// Límites de dimensiones de las fotografías (HU 04.2).
+const (
+	LadoMinimoImagen   = 200  // px; más chica no sirve para la inferencia
+	LadoMaximoImagen   = 8000 // px
+	MegapixelesMaximos = 25   // cubre cámaras de celular de hasta 24 MP
+
+	// MIMEImagenNormalizada: toda foto original se re-codifica a JPEG sin metadatos.
+	MIMEImagenNormalizada = "image/jpeg"
+)
+
 // extensiones: formatos aceptados y la extensión con la que se guardan.
 // La extensión SIEMPRE sale de aquí, nunca del nombre que envía el usuario.
 var extensiones = map[string]string{
