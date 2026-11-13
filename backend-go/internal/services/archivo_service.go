@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/PL290723/URBIA/backend-go/internal/auth"
 	"github.com/PL290723/URBIA/backend-go/internal/dominio"
+	"github.com/PL290723/URBIA/backend-go/internal/imagenes"
 	"github.com/PL290723/URBIA/backend-go/internal/models"
 	"github.com/PL290723/URBIA/backend-go/internal/repositories"
 	"github.com/PL290723/URBIA/backend-go/internal/response"
@@ -22,13 +24,15 @@ const (
 )
 
 type ArchivoService struct {
-	repo    *repositories.ArchivoRepository
-	almacen *storage.Local
-	log     *slog.Logger
+	repo     *repositories.ArchivoRepository
+	almacen  *storage.Local
+	saneador *imagenes.Saneador
+	log      *slog.Logger
 }
 
-func NewArchivoService(repo *repositories.ArchivoRepository, almacen *storage.Local, log *slog.Logger) *ArchivoService {
-	return &ArchivoService{repo: repo, almacen: almacen, log: log}
+func NewArchivoService(repo *repositories.ArchivoRepository, almacen *storage.Local,
+	saneador *imagenes.Saneador, log *slog.Logger) *ArchivoService {
+	return &ArchivoService{repo: repo, almacen: almacen, saneador: saneador, log: log}
 }
 
 // NuevoArchivo: MIME debe venir detectado del contenido, no del header ni de la extensión.
@@ -39,8 +43,10 @@ type NuevoArchivo struct {
 }
 
 // Guardar sube la foto original de un reporte. Solo el autor del reporte o un administrador.
-func (s *ArchivoService) Guardar(ctx context.Context, sesion auth.Sesion, n NuevoArchivo) (*models.Archivo, error) {
-	autor, err := s.repo.AutorDeReporte(ctx, n.IDReporte)
+// Guardar valida, sanea y guarda la foto original de un reporte.
+// Solo el autor del reporte o un administrador.
+func (s *ArchivoService) Guardar(ctx context.Context, sesion auth.Sesion, idReporte int64, contenido io.Reader) (*models.Archivo, error) {
+	autor, err := s.repo.AutorDeReporte(ctx, idReporte)
 	if errors.Is(err, repositories.ErrNoEncontrado) {
 		return nil, response.NotFound(msgReporteNoEncontrado)
 	}
@@ -50,7 +56,38 @@ func (s *ArchivoService) Guardar(ctx context.Context, sesion auth.Sesion, n Nuev
 	if !dominio.PuedeAccederArchivo(sesion.Rol, sesion.UsuarioID, autor) {
 		return nil, response.NotFound(msgReporteNoEncontrado) // no revela que el reporte existe
 	}
-	return s.guardar(ctx, n, dominio.VarianteOriginal)
+
+	// Se valida después del permiso: no se procesa nada de quien no puede subir.
+	img, err := s.saneador.Sanear(ctx, contenido)
+	if err != nil {
+		s.log.Info("imagen rechazada", "id_reporte", idReporte, "id_usuario", sesion.UsuarioID, "motivo", err.Error())
+		return nil, s.errorDeValidacion(err)
+	}
+	return s.guardar(ctx, NuevoArchivo{
+		IDReporte: idReporte,
+		MIME:      img.MIME,
+		Contenido: bytes.NewReader(img.Contenido),
+	}, dominio.VarianteOriginal)
+}
+
+func (s *ArchivoService) errorDeValidacion(err error) error {
+	lim := s.saneador.Limites()
+	switch {
+	case errors.Is(err, imagenes.ErrVacio):
+		return response.BadRequest("El archivo está vacío")
+	case errors.Is(err, imagenes.ErrDemasiadoGrande):
+		return response.PayloadTooLarge("La imagen supera el tamaño máximo de 10 MB")
+	case errors.Is(err, imagenes.ErrFormatoNoPermitido):
+		return response.UnsupportedMediaType("Formato no permitido: usa JPEG, PNG o WebP")
+	case errors.Is(err, imagenes.ErrDimensiones):
+		return response.UnprocessableImage(fmt.Sprintf(
+			"La imagen debe medir entre %d y %d px por lado y como máximo %d MP",
+			lim.MinLado, lim.MaxLado, lim.MaxPixeles/1_000_000))
+	case errors.Is(err, imagenes.ErrImagenDanada):
+		return response.UnprocessableImage("La imagen está dañada o no se puede procesar")
+	default:
+		return err // p. ej. el cliente canceló la petición
+	}
 }
 
 // GuardarProcesada es de uso interno (resultado del modelo, módulo 05): no la expone ninguna ruta.

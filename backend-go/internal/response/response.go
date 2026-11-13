@@ -30,6 +30,8 @@ const (
 	CodeInternal           = "ERROR_INTERNO"
 	CodeServiceUnavailable = "SERVICIO_NO_DISPONIBLE"
 	CodePayloadTooLarge    = "ARCHIVO_DEMASIADO_GRANDE"
+	CodeUnsupportedMedia   = "FORMATO_NO_PERMITIDO"
+	CodeInvalidImage       = "IMAGEN_INVALIDA"
 )
 
 func OK(c *gin.Context, data any)      { c.JSON(http.StatusOK, Body{Success: true, Data: data}) }

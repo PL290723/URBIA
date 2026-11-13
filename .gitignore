@@ -67,15 +67,19 @@ build/
 # Datasets y salidas de entrenamiento de Ultralytics/YOLO
 datasets/
 runs/
-yolov8n.pt  # (O cualquier versión base que descargues)
+# yolov8n.pt y demás pesos ya quedan cubiertos por *.pt
 
 # ========================================
 # 5. Archivos de la Aplicación (Volúmenes y temporales)
 # ========================================
-# Volumen persistente de Docker para imágenes originales y procesadas.
-storage/
-uploads/
-/database/data/  # Si mapeas el volumen de PostgreSQL a una carpeta local
+# Volumen persistente de imágenes. Con "/" al inicio para NO ignorar
+# el paquete backend-go/internal/storage.
+/storage/
+/backend-go/storage/
+/uploads/
+/backend-go/uploads/
+# Volumen local de PostgreSQL (si se mapea a una carpeta)
+/database/data/
 temp/
 tmp/
 *.log

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PL290723/URBIA/backend-go/internal/dominio"
+	"github.com/PL290723/URBIA/backend-go/internal/imagenes"
 	"github.com/PL290723/URBIA/backend-go/internal/storage"
 	"github.com/gin-gonic/gin"
 
@@ -82,7 +83,8 @@ func run() error {
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
 	authSvc, err := services.NewAuthService(usuarioRepo, tokens)
 	archivoRepo := repositories.NewArchivoRepository(pool)
-	archivoSvc := services.NewArchivoService(archivoRepo, almacen, log)
+	saneador := imagenes.NewSaneador(imagenes.LimitesPorDefecto(), 2) // máx. 2 imágenes procesándose a la vez
+	archivoSvc := services.NewArchivoService(archivoRepo, almacen, saneador, log)
 	if err != nil {
 		return err
 	}
