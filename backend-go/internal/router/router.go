@@ -16,6 +16,7 @@ type Handlers struct {
 	Health  *handlers.HealthHandler
 	Auth    *handlers.AuthHandler
 	Usuario *handlers.UsuarioHandler
+	Archivo *handlers.ArchivoHandler
 }
 
 func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
@@ -44,7 +45,7 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	registerHealthRoutes(v1, h.Health)
 	registerAuthRoutes(v1, h.Auth, requireAuth)
 	registerAdminRoutes(v1, h.Usuario, requireAuth)
-	// Próximo: registerReporteRoutes(v1, h.Reporte, requireAuth)
+	registerArchivoRoutes(v1, h.Archivo, requireAuth)
 	//   PATCH /reportes/:id/estado → requireAuth + middleware.RequirePermiso(dominio.Rol.PuedeCambiarEstado)
 
 	return r
