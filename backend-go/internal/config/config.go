@@ -24,6 +24,7 @@ type Config struct {
 	InferenceURL      string
 	InferenceInterval time.Duration
 	InferenceTimeout  time.Duration
+	StorageDir        string
 }
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
@@ -85,6 +86,7 @@ func Load() (*Config, error) {
 	}
 	cfg.InferenceInterval = duracionPositiva("INFERENCE_CHECK_INTERVAL", "15s", &errs)
 	cfg.InferenceTimeout = duracionPositiva("INFERENCE_TIMEOUT", "2s", &errs)
+	cfg.StorageDir = strings.TrimSpace(getEnv("STORAGE_DIR", "./storage"))
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -138,5 +140,6 @@ func (c *Config) ResumenSeguro() []any {
 		"jwt_ttl", c.JWTTTL.String(),
 		"inferencia", inferencia,
 		"inferencia_intervalo", c.InferenceInterval.String(),
+		"almacenamiento", c.StorageDir,
 	}
 }

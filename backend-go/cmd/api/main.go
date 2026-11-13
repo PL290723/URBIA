@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PL290723/URBIA/backend-go/internal/dominio"
+	"github.com/PL290723/URBIA/backend-go/internal/storage"
 	"github.com/gin-gonic/gin"
 
 	"github.com/PL290723/URBIA/backend-go/internal/auth"
@@ -56,6 +58,13 @@ func run() error {
 	defer pool.Close()
 	log.Info("conectado a PostgreSQL")
 
+	almacen, err := storage.NewLocal(cfg.StorageDir, dominio.TamanoMaximoArchivo)
+	if err != nil {
+		return err
+	}
+	defer almacen.Close()
+	log.Info("almacenamiento de imágenes listo", "dir", almacen.Dir())
+
 	// Servicio de inferencia: se vigila en segundo plano y no bloquea el arranque.
 	inferencia := services.NewInferenciaMonitor(
 		clients.NewInferenciaClient(cfg.InferenceURL, cfg.InferenceTimeout),
@@ -72,6 +81,8 @@ func run() error {
 	healthSvc := services.NewHealthService(healthRepo, inferencia, log, version, inicio)
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
 	authSvc, err := services.NewAuthService(usuarioRepo, tokens)
+	archivoRepo := repositories.NewArchivoRepository(pool)
+	archivoSvc := services.NewArchivoService(archivoRepo, almacen, log)
 	if err != nil {
 		return err
 	}
@@ -80,6 +91,7 @@ func run() error {
 		Health:  handlers.NewHealthHandler(healthSvc),
 		Auth:    handlers.NewAuthHandler(authSvc),
 		Usuario: handlers.NewUsuarioHandler(usuarioSvc),
+		Archivo: handlers.NewArchivoHandler(archivoSvc),
 	})
 
 	srv := &http.Server{
