@@ -31,6 +31,9 @@ func NotFound(msg string) *AppError {
 func Conflict(msg string) *AppError {
 	return &AppError{Status: http.StatusConflict, Code: CodeConflict, Message: msg}
 }
+func PayloadTooLarge(msg string) *AppError {
+	return &AppError{Status: http.StatusRequestEntityTooLarge, Code: CodePayloadTooLarge, Message: msg}
+}
 
 // HandleError responde con el AppError si lo es; si no, 500 sin filtrar detalles internos.
 func HandleError(c *gin.Context, err error) {

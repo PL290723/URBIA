@@ -29,6 +29,7 @@ const (
 	CodeConflict           = "CONFLICTO"
 	CodeInternal           = "ERROR_INTERNO"
 	CodeServiceUnavailable = "SERVICIO_NO_DISPONIBLE"
+	CodePayloadTooLarge    = "ARCHIVO_DEMASIADO_GRANDE"
 )
 
 func OK(c *gin.Context, data any)      { c.JSON(http.StatusOK, Body{Success: true, Data: data}) }
