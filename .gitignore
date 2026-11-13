@@ -4,6 +4,7 @@
 # Mantener secretos fuera del repositorio
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 secrets/
