@@ -37,6 +37,8 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	})
 
 	requireAuth := middleware.RequireAuth(tokens)
+	// Alias de compatibilidad (HU 01.2 / 03.3 hablan de /api/health)
+	r.GET("/api/health", h.Health.Check)
 
 	v1 := r.Group("/api/v1")
 	registerHealthRoutes(v1, h.Health)

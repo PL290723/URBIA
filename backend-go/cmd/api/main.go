@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/PL290723/URBIA/backend-go/internal/auth"
 	"github.com/gin-gonic/gin"
 
+	"github.com/PL290723/URBIA/backend-go/internal/auth"
+	"github.com/PL290723/URBIA/backend-go/internal/clients"
 	"github.com/PL290723/URBIA/backend-go/internal/config"
 	"github.com/PL290723/URBIA/backend-go/internal/db"
 	"github.com/PL290723/URBIA/backend-go/internal/handlers"
@@ -21,6 +22,9 @@ import (
 	"github.com/PL290723/URBIA/backend-go/internal/router"
 	"github.com/PL290723/URBIA/backend-go/internal/services"
 )
+
+// version se sobreescribe al compilar: go build -ldflags "-X main.version=0.3.0" ./cmd/api
+var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
@@ -30,6 +34,8 @@ func main() {
 }
 
 func run() error {
+	inicio := time.Now()
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("configuración inválida:\n%w", err)
@@ -38,6 +44,7 @@ func run() error {
 	log := newLogger(cfg)
 	slog.SetDefault(log)
 	gin.SetMode(cfg.GinMode)
+	log.Info("iniciando URBIA API", append([]any{"version", version}, cfg.ResumenSeguro()...)...)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -49,13 +56,20 @@ func run() error {
 	defer pool.Close()
 	log.Info("conectado a PostgreSQL")
 
+	// Servicio de inferencia: se vigila en segundo plano y no bloquea el arranque.
+	inferencia := services.NewInferenciaMonitor(
+		clients.NewInferenciaClient(cfg.InferenceURL, cfg.InferenceTimeout),
+		cfg.InferenceInterval, log,
+	)
+	inferencia.Iniciar(ctx)
+
 	// Inyección de dependencias: repository → service → handler
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 
 	healthRepo := repositories.NewHealthRepository(pool)
 	usuarioRepo := repositories.NewUsuarioRepository(pool)
 
-	healthSvc := services.NewHealthService(healthRepo)
+	healthSvc := services.NewHealthService(healthRepo, inferencia, log, version, inicio)
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
 	authSvc, err := services.NewAuthService(usuarioRepo, tokens)
 	if err != nil {
@@ -76,7 +90,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("API escuchando", "addr", srv.Addr, "env", cfg.AppEnv)
+		log.Info("API escuchando", "addr", srv.Addr, "arranque_ms", time.Since(inicio).Milliseconds())
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -85,14 +99,18 @@ func run() error {
 
 	select {
 	case err := <-errCh:
-		return err
+		return fmt.Errorf("no se pudo iniciar el servidor HTTP: %w", err)
 	case <-ctx.Done():
 	}
 
 	log.Info("apagando servidor...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("apagado forzado: %w", err)
+	}
+	log.Info("servidor detenido correctamente")
+	return nil
 }
 
 func newLogger(cfg *config.Config) *slog.Logger {

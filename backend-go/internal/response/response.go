@@ -44,3 +44,11 @@ func ValidationError(c *gin.Context, details any) {
 		Code: CodeValidation, Message: "Los datos enviados no son válidos", Details: details,
 	}})
 }
+
+// Unavailable responde 503 incluyendo el estado (útil para health checks).
+func Unavailable(c *gin.Context, data any, message string) {
+	c.AbortWithStatusJSON(http.StatusServiceUnavailable, Body{
+		Data:  data,
+		Error: &ErrorBody{Code: CodeServiceUnavailable, Message: message},
+	})
+}
