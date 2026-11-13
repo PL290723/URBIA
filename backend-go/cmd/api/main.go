@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PL290723/URBIA/backend-go/internal/auth"
 	"github.com/gin-gonic/gin"
 
 	"github.com/PL290723/URBIA/backend-go/internal/config"
@@ -49,11 +50,22 @@ func run() error {
 	log.Info("conectado a PostgreSQL")
 
 	// Inyección de dependencias: repository → service → handler
-	healthRepo := repositories.NewHealthRepository(pool)
-	healthSvc := services.NewHealthService(healthRepo)
+	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 
-	r := router.New(log, router.Handlers{
-		Health: handlers.NewHealthHandler(healthSvc),
+	healthRepo := repositories.NewHealthRepository(pool)
+	usuarioRepo := repositories.NewUsuarioRepository(pool)
+
+	healthSvc := services.NewHealthService(healthRepo)
+	usuarioSvc := services.NewUsuarioService(usuarioRepo)
+	authSvc, err := services.NewAuthService(usuarioRepo, tokens)
+	if err != nil {
+		return err
+	}
+
+	r := router.New(log, tokens, router.Handlers{
+		Health:  handlers.NewHealthHandler(healthSvc),
+		Auth:    handlers.NewAuthHandler(authSvc),
+		Usuario: handlers.NewUsuarioHandler(usuarioSvc),
 	})
 
 	srv := &http.Server{

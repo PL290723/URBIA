@@ -6,16 +6,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/PL290723/URBIA/backend-go/internal/auth"
 	"github.com/PL290723/URBIA/backend-go/internal/handlers"
 	"github.com/PL290723/URBIA/backend-go/internal/middleware"
 	"github.com/PL290723/URBIA/backend-go/internal/response"
 )
 
 type Handlers struct {
-	Health *handlers.HealthHandler
+	Health  *handlers.HealthHandler
+	Auth    *handlers.AuthHandler
+	Usuario *handlers.UsuarioHandler
 }
 
-func New(log *slog.Logger, h Handlers) *gin.Engine {
+func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	r := gin.New()
 	r.HandleMethodNotAllowed = true
 	_ = r.SetTrustedProxies(nil)
@@ -33,9 +36,14 @@ func New(log *slog.Logger, h Handlers) *gin.Engine {
 		response.Error(c, http.StatusMethodNotAllowed, response.CodeMethodNotAllowed, "Método no permitido")
 	})
 
+	requireAuth := middleware.RequireAuth(tokens)
+
 	v1 := r.Group("/api/v1")
 	registerHealthRoutes(v1, h.Health)
-	// Próximos módulos: registerAuthRoutes(v1, h.Auth), registerReporteRoutes(v1, h.Reporte)…
+	registerAuthRoutes(v1, h.Auth, requireAuth)
+	registerAdminRoutes(v1, h.Usuario, requireAuth)
+	// Próximo: registerReporteRoutes(v1, h.Reporte, requireAuth)
+	//   PATCH /reportes/:id/estado → requireAuth + middleware.RequirePermiso(dominio.Rol.PuedeCambiarEstado)
 
 	return r
 }
