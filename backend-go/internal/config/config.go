@@ -3,22 +3,27 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	AppEnv          string
-	Port            int
-	GinMode         string
-	LogLevel        string
-	DatabaseURL     string
-	ShutdownTimeout time.Duration
-	JWTSecret       string
-	JWTTTL          time.Duration
+	AppEnv            string
+	Port              int
+	GinMode           string
+	LogLevel          string
+	DatabaseURL       string
+	ShutdownTimeout   time.Duration
+	JWTSecret         string
+	JWTTTL            time.Duration
+	InferenceURL      string
+	InferenceInterval time.Duration
+	InferenceTimeout  time.Duration
 }
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
@@ -71,6 +76,16 @@ func Load() (*Config, error) {
 	}
 	cfg.JWTTTL = ttl
 
+	cfg.InferenceURL = strings.TrimRight(os.Getenv("INFERENCE_URL"), "/")
+	if cfg.InferenceURL != "" {
+		u, err := url.Parse(cfg.InferenceURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, errors.New("INFERENCE_URL inválida (ejemplo: http://localhost:8000)"))
+		}
+	}
+	cfg.InferenceInterval = duracionPositiva("INFERENCE_CHECK_INTERVAL", "15s", &errs)
+	cfg.InferenceTimeout = duracionPositiva("INFERENCE_TIMEOUT", "2s", &errs)
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -93,4 +108,35 @@ func oneOf(v string, opts ...string) bool {
 		}
 	}
 	return false
+}
+
+func duracionPositiva(key, def string, errs *[]error) time.Duration {
+	d, err := time.ParseDuration(getEnv(key, def))
+	if err != nil || d <= 0 {
+		*errs = append(*errs, fmt.Errorf("%s inválido (ejemplo: %s)", key, def))
+	}
+	return d
+}
+
+// ResumenSeguro devuelve la configuración apta para logs: sin contraseñas ni secretos.
+func (c *Config) ResumenSeguro() []any {
+	db := "(formato clave=valor, oculto)"
+	if u, err := url.Parse(c.DatabaseURL); err == nil && (u.Scheme == "postgres" || u.Scheme == "postgresql") {
+		u.RawQuery = ""
+		db = u.Redacted() // postgres://urbia_app:xxxxx@localhost:5432/urbia
+	}
+	inferencia := "no configurada"
+	if c.InferenceURL != "" {
+		inferencia = c.InferenceURL
+	}
+	return []any{
+		"entorno", c.AppEnv,
+		"puerto", c.Port,
+		"gin_mode", c.GinMode,
+		"log_level", c.LogLevel,
+		"database", db,
+		"jwt_ttl", c.JWTTTL.String(),
+		"inferencia", inferencia,
+		"inferencia_intervalo", c.InferenceInterval.String(),
+	}
 }
