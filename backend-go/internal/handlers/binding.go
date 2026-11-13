@@ -39,6 +39,7 @@ func bindJSON(c *gin.Context, dst any) bool {
 		response.ValidationError(c, detalles)
 		return false
 	}
+	_ = c.Error(err) // el logger muestra el motivo real (p. ej. "invalid character 'n'...")
 	response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "El cuerpo debe ser un JSON válido")
 	return false
 }
