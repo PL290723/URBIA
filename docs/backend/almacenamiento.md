@@ -29,8 +29,8 @@ STORAGE_DIR/
 | DELETE | /api/v1/archivos/:id | 204, 404 |
 
 ## Formatos y límites
-JPEG, PNG y WebP; máximo 10 MiB (`ck_archivo_tamano`). La validación profunda
-(imagen corrupta, EXIF) corresponde a la HU 04.2.
+JPEG, PNG y WebP; máximo 10 MiB. Las originales se guardan siempre como JPEG saneado,
+sin EXIF. Ver [validacion-imagenes.md](validacion-imagenes.md).
 
 ## Volumen en Docker (se declara en el Módulo 10)
 ```yaml
