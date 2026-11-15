@@ -3,9 +3,17 @@ Prepara el dataset de URBIA a partir de exports YOLOv8 de Roboflow (HU 05.1).
 
 Uso (desde inference-python/):
 
-    python -m scripts.preparar_dataset ^
+    python -m scripts.preparar_dataset --split-original --quitar-duplicados ^
         --fuente pothole=datasets/fuentes/pothole ^
         --fuente garbage=datasets/fuentes/garbage
+
+--split-original respeta train/valid/test del export. Úsalo con exports de
+Roboflow: sus aumentaciones (ruido, rotación) solo están en train/, así que
+val y test quedan con fotos reales. Sin esa opción se divide todo al azar.
+
+--quitar-duplicados saca de val/test las fotos que son copia (idéntica o casi
+idéntica) de una foto de un split anterior, y registra cuáles en
+config/duplicados_quitados.csv (se versiona en git).
 
 Resultado:
     datasets/urbia/images/{train,val,test}
@@ -66,6 +74,12 @@ def main() -> None:
     p.add_argument("--proporciones", type=float, nargs=3, default=(0.7, 0.2, 0.1),
                    metavar=("TRAIN", "VAL", "TEST"))
     p.add_argument("--limpiar", action="store_true", help="Borra el destino antes de preparar")
+    p.add_argument("--split-original", action="store_true",
+                   help="Respetar train/valid/test del export en vez de dividir al azar")
+    p.add_argument("--quitar-duplicados", action="store_true",
+                   help="Quitar de val/test las copias de fotos de un split anterior")
+    p.add_argument("--registro-duplicados", type=Path,
+                   default=RAIZ_SERVICIO / "config" / "duplicados_quitados.csv")
     args = p.parse_args()
 
     clases.validar_definicion()
@@ -90,9 +104,13 @@ def main() -> None:
         manifiesto=args.manifiesto,
         proporciones=tuple(args.proporciones),
         semilla=args.semilla,
+        split_original=args.split_original,
+        registro_duplicados=args.registro_duplicados if args.quitar_duplicados else None,
     )
     data_yaml = escribir_data_yaml(args.destino)
 
+    modo = "original del export" if args.split_original else f"aleatoria (semilla {args.semilla})"
+    print(f"División: {modo}")
     print(f"Imágenes preparadas: {resumen.imagenes}")
     for split in ("train", "val", "test"):
         print(f"  {split:5}: {resumen.por_split[split]}")
@@ -100,6 +118,12 @@ def main() -> None:
     for id_clase, nombre in clases.NOMBRES.items():
         print(f"  {id_clase} {nombre:8}: {resumen.cajas_por_clase[id_clase]}")
     print(f"Cajas descartadas (clases fuera del MVP): {resumen.cajas_descartadas}")
+    if args.quitar_duplicados:
+        quitados = resumen.duplicados_quitados
+        identicos = sum(d.tipo == "idéntico" for d in quitados)
+        print(f"Duplicados quitados de val/test: {len(quitados)} "
+              f"({identicos} idénticos, {len(quitados) - identicos} casi idénticos)")
+        print(f"Registro:    {args.registro_duplicados}")
     print(f"data.yaml:   {data_yaml}")
     print(f"Manifiesto:  {args.manifiesto}")
 

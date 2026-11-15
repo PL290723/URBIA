@@ -66,13 +66,14 @@ Usar, copiar, modificar y redistribuir las imágenes y anotaciones, incluso con 
 3. Desde `inference-python/`, con el entorno virtual activo:
 
    ```powershell
-   python -m scripts.preparar_dataset --fuente pothole=datasets/fuentes/pothole --fuente garbage=datasets/fuentes/garbage --limpiar
+   python -m scripts.preparar_dataset --split-original --quitar-duplicados --fuente pothole=datasets/fuentes/pothole --fuente garbage=datasets/fuentes/garbage --limpiar
    python -m scripts.validar_dataset
    ```
 
 El script `preparar_dataset`:
 
-- Ignora la división original de cada export y **vuelve a dividir** todo con la semilla 42.
+- Con `--split-original` **respeta la división del export** (`train/`, `valid/`, `test/`). Es el modo que usa URBIA: Roboflow aplica sus aumentaciones (ruido, rotación) solo a `train/`, así que `val` y `test` quedan con fotos reales. Sin esa opción vuelve a dividir todo al azar con la semilla 42.
+- Con `--quitar-duplicados` **saca de `val` y `test` las fotos que son copia de una foto de un split anterior** (ver sección 5) y registra cuáles en `inference-python/config/duplicados_quitados.csv`, que se versiona en git. `train` nunca se modifica.
 - Traduce las clases de cada fuente a las de URBIA (`MAPEO_FUENTES` en `clases.py`) y descarta las demás.
 - Convierte polígonos (si el export trae segmentación) a cajas.
 - Agrega el prefijo de la fuente a cada archivo (`pothole__…`, `garbage__…`) para que no choquen nombres.
@@ -80,14 +81,16 @@ El script `preparar_dataset`:
 
 ## 5. Conjuntos de entrenamiento, validación y prueba
 
-| Split | Proporción | Uso |
+| Split | Origen | Uso |
 |---|---|---|
-| `train` | 70 % | Entrenar el modelo (HU 05.2) |
-| `val` | 20 % | Ajustar hiperparámetros y elegir el mejor *checkpoint* |
-| `test` | 10 % | **Conjunto de evaluación**: solo se usa al final para reportar métricas |
+| `train` | `train/` del export (incluye las aumentaciones de Roboflow) | Entrenar el modelo (HU 05.2) |
+| `val` | `valid/` del export (fotos sin aumentar) | Elegir el mejor *checkpoint* durante el entrenamiento |
+| `test` | `test/` del export (fotos sin aumentar) | **Conjunto de evaluación**: solo se usa al final para reportar métricas |
 
-- **Reproducible:** misma semilla (42) = misma división.
-- **Sin fuga de datos:** Roboflow exporta varias versiones aumentadas de la misma foto (`foto_jpg.rf.<hash>.jpg`). Todas las variantes de una foto caen en el mismo split; `validar_dataset` lo verifica.
+- **Por qué se respeta la división del export:** en la primera versión se dividió todo al azar (70/20/10). Eso mantenía juntas las variantes de cada foto, pero llevaba fotos aumentadas con ruido y rotación a `val` y `test`, y las métricas dejaban de representar fotos reales. Se detectó al inspeccionar errores en la HU 05.2 (ver `modelo.md`, sección 5.1).
+- **Sin fuga de datos:** Roboflow divide las fotos antes de aumentarlas, así que ninguna *variante aumentada* de una foto de `train` está en `val` o `test`. Pero el dataset de basura se armó con fotos de internet y **el mismo archivo o la misma foto de banco de imágenes aparece más de una vez** con nombres distintos (por ejemplo, una foto de Alamy con el nombre en francés y en italiano), y Roboflow repartió esas copias en splits distintos. Por eso:
+  - `validar_dataset` compara **el contenido de las imágenes, no los nombres** (muchas fotos se llamaban igual en origen, como `image.jpg` o `images46.jpg`, aunque sean distintas). Mismo archivo (SHA-256 idéntico) en dos splits → **error**. Huella visual casi igual (dHash, ≤ 5 de 64 bits) → **advertencia**.
+  - `preparar_dataset --quitar-duplicados` saca esas copias de `val` y `test` (se queda la de `train`; si la copia está en `val` y `test`, se queda la de `val`).
 - **Identificable:** `inference-python/config/manifiesto_split.csv` (versionado en git) lista cada imagen, su split, su fuente y su SHA-256. `validar_dataset` falla si una imagen de `test` cambia o si aparece una imagen no registrada.
 
 ### 5.1 Conjunto de prueba local (Celaya)
@@ -138,8 +141,41 @@ Coordenadas normalizadas de 0 a 1. Un `.txt` vacío = imagen sin incidencias (ej
 
 ## 9. Resultado de la preparación
 
-> Pegar aquí la salida de `python -m scripts.validar_dataset` después de preparar el dataset.
+### 9.1 Versión actual (`--split-original --quitar-duplicados`)
 
 ```
-(pendiente)
+python -m scripts.preparar_dataset --split-original --quitar-duplicados --fuente pothole=... --fuente garbage=... --limpiar
+Duplicados quitados de val/test: 24 (4 idénticos, 20 casi idénticos)
+
+python -m scripts.validar_dataset
+split   imágenes  negativas    bache   basura
+train       6668        228     5513     3933
+val          346         11      128      260
+test         344         24      176      263
+
+OK: el dataset es válido.
 ```
+
+| Split | Imágenes | Cajas `bache` | Cajas `basura` | Negativas |
+|---|---|---|---|---|
+| train | 6 668 | 5 513 | 3 933 | 228 |
+| val | 346 | 128 | 260 | 11 |
+| test | 344 | 176 | 263 | 24 |
+| **Total** | **7 358** | **5 817** | **4 456** | **263** |
+
+- `val` y `test` contienen solo fotos sin aumentar. `train` incluye las 3 variantes aumentadas por foto que genera Roboflow, por eso concentra el 90 % de las imágenes.
+- Se quitaron **24 imágenes de `val`/`test`** que eran copia de una foto de un split anterior: 4 archivos idénticos y 20 casi idénticos (la misma foto de banco de imágenes con otro nombre, o cuadros casi iguales de un mismo video). Se revisaron a mano y todas son la misma foto. La lista está en `inference-python/config/duplicados_quitados.csv`.
+- El conjunto de evaluación son las **344 imágenes de `test`** registradas en `inference-python/config/manifiesto_split.csv`.
+
+### 9.2 Primera versión (división aleatoria, reemplazada)
+
+```
+split   imágenes  negativas    bache   basura
+train       5176        176     4065     3144
+val         1474         63     1174      910
+test         732         24      582      423
+
+OK: el dataset es válido.
+```
+
+Formato válido, pero con imágenes aumentadas en `val` y `test`, y sin revisar fotos duplicadas por contenido. Las 7 382 imágenes corresponden a unas 2 780 fotos distintas (1 196 de baches y 1 584 de basura), casi todas con 3 variantes. Se reemplazó por la versión 9.1.

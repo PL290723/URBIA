@@ -2,8 +2,9 @@
 Valida un dataset de URBIA ya preparado (HU 05.1).
 
 Revisa: formato YOLO de cada etiqueta, ids de clase válidos, imágenes sin
-etiqueta, etiquetas sin imagen, fugas entre splits y que el conjunto de
-prueba coincida con el manifiesto versionado.
+etiqueta, etiquetas sin imagen, fugas entre splits (comparando el contenido
+de las imágenes, no los nombres) y que el conjunto de prueba coincida con
+el manifiesto versionado.
 
 Uso (desde inference-python/):
     python -m scripts.validar_dataset
@@ -45,7 +46,12 @@ def main() -> int:
     for split in SPLITS:
         cajas = " ".join(f"{rep.cajas[split][i]:>8}" for i in clases.NOMBRES)
         print(f"{split:6} {rep.imagenes_por_split[split]:>9} {rep.negativas_por_split[split]:>10} {cajas}")
-
+    if rep.advertencias:
+        print(f"\n{len(rep.advertencias)} advertencias (revisar a mano, no impiden continuar):")
+        for a in rep.advertencias[:30]:
+            print(f"  - {a}")
+        if len(rep.advertencias) > 30:
+            print(f"  ... y {len(rep.advertencias) - 30} más")
     if rep.ok:
         print("\nOK: el dataset es válido.")
         return 0
