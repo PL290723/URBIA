@@ -159,6 +159,39 @@ def listar_pares(raiz_fuente: Path) -> list[tuple[Path, Path | None]]:
         pares.append((img, etiqueta if etiqueta.exists() else None))
     return pares
 
+_SPLITS_ORIGEN = {"train": "train", "valid": "val", "val": "val", "test": "test"}
+
+
+def split_de_origen(img: Path) -> str | None:
+    """
+    Split que la fuente le asignó a la imagen, según la carpeta que está
+    justo antes de 'images' (train/, valid/, test/ en los exports de Roboflow).
+    """
+    partes = img.parts
+    idx = len(partes) - 1 - partes[::-1].index("images")
+    return _SPLITS_ORIGEN.get(partes[idx - 1].lower()) if idx > 0 else None
+
+
+def dividir_por_origen(por_nombre: dict[str, tuple[Path, Path | None]]) -> dict[str, list[str]]:
+    """
+    Respeta la división del export original. En Roboflow las aumentaciones
+    (ruido, rotación, etc.) solo se aplican a train/, así que val y test
+    quedan con fotos sin alterar y sin variantes de las fotos de train.
+    """
+    division: dict[str, list[str]] = {s: [] for s in SPLITS}
+    sin_split = []
+    for nombre, (img, _) in sorted(por_nombre.items()):
+        split = split_de_origen(img)
+        if split is None:
+            sin_split.append(nombre)
+        else:
+            division[split].append(nombre)
+    if sin_split:
+        raise ValueError(
+            f"{len(sin_split)} imágenes no están en carpetas train/valid/test, "
+            f"por ejemplo '{sin_split[0]}'. Usa la división aleatoria."
+        )
+    return division
 
 def sha256_archivo(ruta: Path) -> str:
     h = hashlib.sha256()
@@ -174,6 +207,7 @@ class ResumenPreparacion:
     cajas_por_clase: Counter = field(default_factory=Counter)
     cajas_descartadas: int = 0
     por_split: Counter = field(default_factory=Counter)
+    duplicados_quitados: list = field(default_factory=list)
 
 
 def preparar(
@@ -183,12 +217,21 @@ def preparar(
     manifiesto: Path,
     proporciones: tuple[float, float, float] = (0.7, 0.2, 0.1),
     semilla: int = 42,
+    split_original: bool = False,
+    registro_duplicados: Path | None = None,
 ) -> ResumenPreparacion:
     """
     fuentes: {nombre_fuente: (ruta_export, nombres_clases_origen, mapeo)}
 
     Copia imágenes y etiquetas remapeadas a `destino`, divide en
     train/val/test y escribe un manifiesto CSV con el split de cada imagen.
+
+    split_original=True respeta la división del export (recomendado con
+    exports de Roboflow que traen aumentaciones). Si es False, se vuelve a
+    dividir todo al azar con `proporciones` y `semilla`.
+
+    registro_duplicados: si se indica, quita de val/test las copias de fotos
+    de un split anterior (ver quitar_duplicados) y guarda ahí qué se quitó.
     """
     resumen = ResumenPreparacion()
     filas_manifiesto: list[dict[str, str]] = []
@@ -201,7 +244,10 @@ def preparar(
         pares = listar_pares(ruta)
         # Prefijo con la fuente para evitar choques de nombres entre datasets
         por_nombre = {f"{nombre_fuente}__{img.name}": (img, lbl) for img, lbl in pares}
-        division = dividir(list(por_nombre), proporciones, semilla)
+        if split_original:
+            division = dividir_por_origen(por_nombre)
+        else:
+            division = dividir(list(por_nombre), proporciones, semilla)
 
         for split, archivos in division.items():
             for nombre_nuevo in archivos:
@@ -226,6 +272,22 @@ def preparar(
                     "sha256": sha256_archivo(dest_img),
                 })
 
+    if registro_duplicados is not None:
+        quitados = quitar_duplicados(destino)
+        fuera = {(d.split, d.nombre) for d in quitados}
+        for d in quitados:
+            resumen.por_split[d.split] -= 1
+            resumen.imagenes -= 1
+        # Recontar cajas con lo que quedó en disco
+        resumen.cajas_por_clase = Counter(
+            int(linea.split()[0])
+            for lbl in (destino / "labels").glob("*/*.txt")
+            for linea in lbl.read_text(encoding="utf-8").splitlines() if linea.strip()
+        )
+        filas_manifiesto = [f for f in filas_manifiesto if (f["split"], f["archivo"]) not in fuera]
+        resumen.duplicados_quitados = quitados
+        escribir_registro_duplicados(registro_duplicados, quitados)
+
     escribir_manifiesto(manifiesto, filas_manifiesto)
     return resumen
 
@@ -243,9 +305,41 @@ def escribir_manifiesto(ruta: Path, filas: list[dict[str, str]]) -> None:
 # Validación de un dataset ya preparado
 # ---------------------------------------------------------------------------
 
+# Distancia de Hamming máxima (de 64 bits) para considerar dos imágenes
+# "casi iguales" (recompresión, cambio de tamaño, ruido leve).
+DISTANCIA_CASI_DUPLICADO = 5
+
+
+def huella_visual(ruta: Path) -> int | None:
+    """
+    Huella perceptual (dHash de 64 bits): reduce la imagen a 9x8 en grises y
+    compara cada píxel con su vecino. Dos fotos iguales o casi iguales dan
+    huellas con pocos bits distintos aunque cambien nombre, tamaño o calidad.
+    """
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(ruta) as im:
+            im.draft("L", (64, 64))  # en JPG decodifica a baja resolución: mucho más rápido
+            pixeles = im.convert("L").resize((9, 8)).tobytes()
+    except (UnidentifiedImageError, OSError):
+        return None
+    bits = 0
+    for fila in range(8):
+        for col in range(8):
+            izq, der = pixeles[fila * 9 + col], pixeles[fila * 9 + col + 1]
+            bits = (bits << 1) | (izq > der)
+    return bits
+
+
+def distancia(a: int, b: int) -> int:
+    return bin(a ^ b).count("1")
+
+
 @dataclass
 class ReporteValidacion:
     errores: list[str] = field(default_factory=list)
+    advertencias: list[str] = field(default_factory=list)
     imagenes_por_split: Counter = field(default_factory=Counter)
     cajas: dict[str, Counter] = field(default_factory=lambda: defaultdict(Counter))
     negativas_por_split: Counter = field(default_factory=Counter)
@@ -257,7 +351,7 @@ class ReporteValidacion:
 
 def validar_dataset(raiz: Path, num_clases: int, manifiesto: Path | None = None) -> ReporteValidacion:
     rep = ReporteValidacion()
-    vistos: dict[str, str] = {}  # clave_grupo -> split, para detectar fugas
+    rutas_por_split: dict[str, list[Path]] = {}
 
     for split in SPLITS:
         dir_img = raiz / "images" / split
@@ -267,18 +361,12 @@ def validar_dataset(raiz: Path, num_clases: int, manifiesto: Path | None = None)
             continue
 
         imagenes = sorted(p for p in dir_img.iterdir() if p.suffix.lower() in EXTENSIONES_IMAGEN)
+        rutas_por_split[split] = imagenes
         if not imagenes:
             rep.errores.append(f"el split '{split}' no tiene imágenes")
 
         for img in imagenes:
             rep.imagenes_por_split[split] += 1
-
-            grupo = clave_grupo(img.name)
-            if grupo in vistos and vistos[grupo] != split:
-                rep.errores.append(
-                    f"fuga de datos: '{grupo}' aparece en '{vistos[grupo]}' y en '{split}'"
-                )
-            vistos.setdefault(grupo, split)
 
             lbl = dir_lbl / img.with_suffix(".txt").name
             if not lbl.exists():
@@ -299,10 +387,115 @@ def validar_dataset(raiz: Path, num_clases: int, manifiesto: Path | None = None)
                 if not any((dir_img / (lbl.stem + ext)).exists() for ext in EXTENSIONES_IMAGEN):
                     rep.errores.append(f"{split}/{lbl.name}: etiqueta sin imagen")
 
+    _detectar_fugas(rutas_por_split, rep)
+
     if manifiesto is not None:
         _validar_contra_manifiesto(raiz, manifiesto, rep)
     return rep
 
+
+@dataclass(frozen=True)
+class Duplicado:
+    """`split/nombre` es una copia de `split_ref/nombre_ref`, que está en un split anterior."""
+    split_ref: str
+    nombre_ref: str
+    split: str
+    nombre: str
+    tipo: str          # "idéntico" (mismo SHA-256) o "casi idéntico" (huella visual)
+    bits: int          # distancia entre huellas (0 en los idénticos)
+
+
+def buscar_duplicados(rutas_por_split: dict[str, list[Path]]) -> tuple[list[Duplicado], list[str]]:
+    """
+    Busca la misma foto en dos splits distintos comparando el CONTENIDO,
+    no el nombre (muchas fotos de internet se llaman igual: image.jpg, images12.jpg,
+    y una misma foto de banco de imágenes aparece con nombres distintos).
+
+    Devuelve (duplicados, ilegibles). El orden de prioridad es train < val < test:
+    el duplicado siempre es la copia del split posterior.
+    """
+    sha: dict[str, list[tuple[str, str]]] = {}          # split -> [(nombre, sha256)]
+    huellas: dict[str, dict[str, int]] = {}             # split -> {nombre: dHash}
+    ilegibles: list[str] = []
+
+    for split, rutas in rutas_por_split.items():
+        sha[split], huellas[split] = [], {}
+        for ruta in rutas:
+            sha[split].append((ruta.name, sha256_archivo(ruta)))
+            h = huella_visual(ruta)
+            if h is None:
+                ilegibles.append(f"{split}/{ruta.name}")
+            else:
+                huellas[split][ruta.name] = h
+
+    duplicados: list[Duplicado] = []
+    for a, b in (("train", "val"), ("train", "test"), ("val", "test")):
+        por_sha_a: dict[str, str] = {}
+        for nombre, valor in sha.get(a, []):
+            por_sha_a.setdefault(valor, nombre)
+        huellas_a = list(huellas.get(a, {}).items())
+        for nombre_b, sha_b in sha.get(b, []):
+            ref = por_sha_a.get(sha_b)
+            if ref is not None:
+                duplicados.append(Duplicado(a, ref, b, nombre_b, "idéntico", 0))
+                continue
+            h_b = huellas.get(b, {}).get(nombre_b)
+            if h_b is None:
+                continue
+            for nombre_a, h_a in huellas_a:
+                d = distancia(h_a, h_b)
+                if d <= DISTANCIA_CASI_DUPLICADO:
+                    duplicados.append(Duplicado(a, nombre_a, b, nombre_b, "casi idéntico", d))
+                    break
+    return duplicados, ilegibles
+
+
+def _detectar_fugas(rutas_por_split: dict[str, list[Path]], rep: ReporteValidacion) -> None:
+    """
+    - Archivo idéntico (mismo SHA-256) en dos splits           -> ERROR (fuga segura).
+    - Huella visual casi igual (<= 5 bits de 64) en dos splits -> ADVERTENCIA
+      (probable la misma foto recomprimida o redimensionada; revisar a mano).
+    """
+    duplicados, ilegibles = buscar_duplicados(rutas_por_split)
+    for ruta in ilegibles:
+        rep.advertencias.append(f"{ruta}: no se pudo leer como imagen")
+    for d in duplicados:
+        texto = f"{d.split_ref}/{d.nombre_ref} ~ {d.split}/{d.nombre}"
+        if d.tipo == "idéntico":
+            rep.errores.append(f"fuga de datos (archivo idéntico): {texto}")
+        else:
+            rep.advertencias.append(f"posible duplicado ({d.bits} bits): {texto}")
+
+
+def quitar_duplicados(destino: Path) -> list[Duplicado]:
+    """
+    Borra de val y test las imágenes (y sus etiquetas) que son copia idéntica o
+    casi idéntica de una imagen de un split anterior. Train nunca se toca.
+    """
+    rutas = {
+        s: sorted(p for p in (destino / "images" / s).iterdir() if p.suffix.lower() in EXTENSIONES_IMAGEN)
+        for s in SPLITS if (destino / "images" / s).is_dir()
+    }
+    duplicados, _ = buscar_duplicados(rutas)
+    vistos: set[tuple[str, str]] = set()
+    quitados: list[Duplicado] = []
+    for d in duplicados:
+        if (d.split, d.nombre) in vistos:
+            continue
+        vistos.add((d.split, d.nombre))
+        (destino / "images" / d.split / d.nombre).unlink(missing_ok=True)
+        (destino / "labels" / d.split / Path(d.nombre).with_suffix(".txt").name).unlink(missing_ok=True)
+        quitados.append(d)
+    return quitados
+
+
+def escribir_registro_duplicados(ruta: Path, quitados: list[Duplicado]) -> None:
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    with ruta.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["split", "archivo_quitado", "tipo", "bits", "split_original", "archivo_original"])
+        for d in sorted(quitados, key=lambda d: (d.split, d.nombre)):
+            w.writerow([d.split, d.nombre, d.tipo, d.bits, d.split_ref, d.nombre_ref])
 
 def _validar_contra_manifiesto(raiz: Path, manifiesto: Path, rep: ReporteValidacion) -> None:
     """Comprueba que el conjunto de prueba sea exactamente el registrado."""
