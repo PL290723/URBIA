@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/PL290723/URBIA/backend-go/internal/dominio"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -31,24 +32,27 @@ func (r *ReporteRepository) Crear(ctx context.Context, rep *models.Reporte, foto
 	defer func() { _ = tx.Rollback(ctx) }() // no hace nada si ya se hizo Commit
 
 	var idCategoria *int16
+	var origenCategoria *string
 	if rep.Categoria != nil {
 		idCategoria = &rep.Categoria.ID
+		o := string(dominio.CategoriaManual) // ck_reporte_categoria_origen: categoría ⇒ origen
+		if rep.OrigenCategoria != nil {
+			o = string(*rep.OrigenCategoria)
+		}
+		origenCategoria = &o
 	}
 
 	// ST_MakePoint recibe (x, y) = (longitud, latitud). SRID 4326 = WGS 84 (lo que da el GPS).
 	const qReporte = `
 		INSERT INTO reporte (id_usuario, id_categoria, descripcion, ubicacion, estado,
-		                     origen_ubicacion, precision_m)
-		VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4::float8, $5::float8), 4326), $6::varchar, $7, $8::float8)
+		                     origen_ubicacion, precision_m, origen_categoria)
+		VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4::float8, $5::float8), 4326), $6::varchar, $7, $8::float8, $9)
 		RETURNING id_reporte, prioridad, fecha_creacion`
 	u := rep.Ubicacion
 	err = tx.QueryRow(ctx, qReporte,
 		rep.IDUsuario, idCategoria, rep.Descripcion, u.Longitud, u.Latitud,
-		string(rep.Estado), string(u.Origen), u.PrecisionM,
+		string(rep.Estado), string(u.Origen), u.PrecisionM, origenCategoria,
 	).Scan(&rep.ID, &rep.Prioridad, &rep.FechaCreacion)
-	if err != nil {
-		return traducirErrorReporte(err)
-	}
 
 	foto.IDReporte = rep.ID
 	if err := insertarArchivo(ctx, tx, foto); err != nil {

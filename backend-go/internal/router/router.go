@@ -13,11 +13,12 @@ import (
 )
 
 type Handlers struct {
-	Health  *handlers.HealthHandler
-	Auth    *handlers.AuthHandler
-	Usuario *handlers.UsuarioHandler
-	Archivo *handlers.ArchivoHandler
-	Reporte *handlers.ReporteHandler
+	Health        *handlers.HealthHandler
+	Auth          *handlers.AuthHandler
+	Usuario       *handlers.UsuarioHandler
+	Archivo       *handlers.ArchivoHandler
+	Reporte       *handlers.ReporteHandler
+	Clasificacion *handlers.ClasificacionHandler
 }
 
 func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
@@ -48,6 +49,7 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	registerAdminRoutes(v1, h.Usuario, requireAuth)
 	registerArchivoRoutes(v1, h.Archivo, requireAuth)
 	registerReporteRoutes(v1, h.Reporte, requireAuth)
+	registerClasificacionRoutes(v1, h.Clasificacion, requireAuth)
 	//   PATCH /reportes/:id/estado → requireAuth + middleware.RequirePermiso(dominio.Rol.PuedeCambiarEstado)
 
 	return r

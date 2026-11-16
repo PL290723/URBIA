@@ -65,6 +65,11 @@ func (s *ReporteService) Crear(ctx context.Context, sesion auth.Sesion, n domini
 		Categoria:   categoria,
 		Ubicacion:   n.Ubicacion,
 	}
+	if categoria != nil {
+		// La eligió al crear, antes de ver la sugerencia de la IA (HU 06.3).
+		manual := dominio.CategoriaManual
+		rep.OrigenCategoria = &manual
+	}
 	if err := s.reportes.Crear(ctx, rep, archivo); err != nil {
 		s.archivos.Descartar(archivo.Ruta) // compensación: sin reporte no debe quedar la foto
 		switch {

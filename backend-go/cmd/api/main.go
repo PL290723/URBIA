@@ -110,13 +110,16 @@ func run() error {
 	deteccionRepo := repositories.NewDeteccionRepository(pool)
 	sugerenciaSvc := services.NewSugerenciaService(detector, deteccionRepo, categoriaRepo, log)
 	reporteSvc := services.NewReporteService(reporteRepo, categoriaRepo, archivoSvc, sugerenciaSvc, log)
+	clasificacionRepo := repositories.NewClasificacionRepository(pool)
+	clasificacionSvc := services.NewClasificacionService(clasificacionRepo, deteccionRepo, categoriaRepo, log)
 
 	r := router.New(log, tokens, router.Handlers{
-		Health:  handlers.NewHealthHandler(healthSvc),
-		Auth:    handlers.NewAuthHandler(authSvc),
-		Usuario: handlers.NewUsuarioHandler(usuarioSvc),
-		Archivo: handlers.NewArchivoHandler(archivoSvc),
-		Reporte: handlers.NewReporteHandler(reporteSvc),
+		Health:        handlers.NewHealthHandler(healthSvc),
+		Auth:          handlers.NewAuthHandler(authSvc),
+		Usuario:       handlers.NewUsuarioHandler(usuarioSvc),
+		Archivo:       handlers.NewArchivoHandler(archivoSvc),
+		Reporte:       handlers.NewReporteHandler(reporteSvc),
+		Clasificacion: handlers.NewClasificacionHandler(clasificacionSvc),
 	})
 
 	srv := &http.Server{
