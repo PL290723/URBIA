@@ -51,6 +51,37 @@ func TestLoad_InferenceURLInvalida(t *testing.T) {
 	}
 }
 
+func TestLoad_InferenceGRPC(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
+	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
+	t.Setenv("INFERENCE_GRPC_ADDR", "localhost:50051")
+	t.Setenv("INFERENCE_GRPC_TIMEOUT", "15s")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+	if cfg.InferenceGRPCAddr != "localhost:50051" || cfg.InferenceGRPCTimeout.String() != "15s" {
+		t.Fatalf("configuración gRPC inesperada: %q %v", cfg.InferenceGRPCAddr, cfg.InferenceGRPCTimeout)
+	}
+}
+
+func TestLoad_InferenceGRPCInvalida(t *testing.T) {
+	casos := map[string]string{
+		"INFERENCE_GRPC_ADDR":    "http://localhost:50051",
+		"INFERENCE_GRPC_TIMEOUT": "0s",
+	}
+	for variable, valor := range casos {
+		t.Run(variable, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
+			t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
+			t.Setenv(variable, valor)
+			if _, err := Load(); err == nil {
+				t.Fatalf("se esperaba error por %s=%s", variable, valor)
+			}
+		})
+	}
+}
+
 func TestResumenSeguro_NoExponeSecretos(t *testing.T) {
 	cfg := &Config{
 		DatabaseURL: "postgres://urbia_app:SuperSecreta@localhost:5432/urbia?sslmode=disable",
