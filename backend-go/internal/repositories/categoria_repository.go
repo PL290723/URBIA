@@ -31,3 +31,19 @@ func (r *CategoriaRepository) BuscarActiva(ctx context.Context, id int16) (*mode
 	}
 	return &c, nil
 }
+
+// BuscarActivaPorNombre traduce la clase de la IA ("bache", "basura") a su categoría.
+// Las clases del modelo se llaman igual que categoria.nombre (HU 05.1).
+func (r *CategoriaRepository) BuscarActivaPorNombre(ctx context.Context, nombre string) (*models.Categoria, error) {
+	var c models.Categoria
+	err := r.db.QueryRow(ctx,
+		`SELECT id_categoria, nombre FROM categoria WHERE lower(nombre) = lower($1) AND activo`, nombre).
+		Scan(&c.ID, &c.Nombre)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("leer categoría por nombre: %w", err)
+	}
+	return &c, nil
+}

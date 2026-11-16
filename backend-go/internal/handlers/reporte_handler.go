@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/PL290723/URBIA/backend-go/internal/middleware"
 	"github.com/gin-gonic/gin"
 
 	"github.com/PL290723/URBIA/backend-go/internal/dominio"
@@ -84,7 +85,7 @@ func (h *ReporteHandler) Crear(c *gin.Context) {
 	}
 	defer f.Close()
 
-	rep, err := h.svc.Crear(c.Request.Context(), sesion, nuevo, f)
+	rep, err := h.svc.Crear(c.Request.Context(), sesion, nuevo, f, c.GetString(middleware.RequestIDKey))
 	if err != nil {
 		response.HandleError(c, err)
 		return
