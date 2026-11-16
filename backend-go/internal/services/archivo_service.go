@@ -42,8 +42,7 @@ type NuevoArchivo struct {
 	Contenido io.Reader
 }
 
-// Guardar sube la foto original de un reporte. Solo el autor del reporte o un administrador.
-// Guardar valida, sanea y guarda la foto original de un reporte.
+// Guardar valida, sanea y guarda la foto original de un reporte que ya existe.
 // Solo el autor del reporte o un administrador.
 func (s *ArchivoService) Guardar(ctx context.Context, sesion auth.Sesion, idReporte int64, contenido io.Reader) (*models.Archivo, error) {
 	autor, err := s.repo.AutorDeReporte(ctx, idReporte)
@@ -58,16 +57,38 @@ func (s *ArchivoService) Guardar(ctx context.Context, sesion auth.Sesion, idRepo
 	}
 
 	// Se valida después del permiso: no se procesa nada de quien no puede subir.
-	img, err := s.saneador.Sanear(ctx, contenido)
+	img, err := s.sanear(ctx, contenido, "id_reporte", idReporte, "id_usuario", sesion.UsuarioID)
 	if err != nil {
-		s.log.Info("imagen rechazada", "id_reporte", idReporte, "id_usuario", sesion.UsuarioID, "motivo", err.Error())
-		return nil, s.errorDeValidacion(err)
+		return nil, err
 	}
 	return s.guardar(ctx, NuevoArchivo{
 		IDReporte: idReporte,
 		MIME:      img.MIME,
 		Contenido: bytes.NewReader(img.Contenido),
 	}, dominio.VarianteOriginal)
+}
+
+// PrepararOriginal valida, sanea y escribe en disco la foto de un reporte que AÚN
+// no existe (HU 06.1). No crea el registro en BD: lo hace ReporteRepository.Crear
+// dentro de su transacción. Si esa transacción falla, hay que llamar a Descartar.
+func (s *ArchivoService) PrepararOriginal(ctx context.Context, idUsuario int64, contenido io.Reader) (*models.Archivo, error) {
+	img, err := s.sanear(ctx, contenido, "id_usuario", idUsuario)
+	if err != nil {
+		return nil, err
+	}
+	return s.escribir(ctx, img.MIME, bytes.NewReader(img.Contenido), dominio.VarianteOriginal)
+}
+
+// Descartar borra del disco un archivo que no llegó a registrarse en la BD.
+func (s *ArchivoService) Descartar(ruta string) { s.descartar(ruta) }
+
+func (s *ArchivoService) sanear(ctx context.Context, contenido io.Reader, logAttrs ...any) (*imagenes.Resultado, error) {
+	img, err := s.saneador.Sanear(ctx, contenido)
+	if err != nil {
+		s.log.Info("imagen rechazada", append(logAttrs, "motivo", err.Error())...)
+		return nil, s.errorDeValidacion(err)
+	}
+	return img, nil
 }
 
 func (s *ArchivoService) errorDeValidacion(err error) error {
@@ -96,12 +117,29 @@ func (s *ArchivoService) GuardarProcesada(ctx context.Context, n NuevoArchivo) (
 }
 
 func (s *ArchivoService) guardar(ctx context.Context, n NuevoArchivo, v dominio.VarianteArchivo) (*models.Archivo, error) {
-	ext, ok := dominio.ExtensionPorMIME(n.MIME)
+	a, err := s.escribir(ctx, n.MIME, n.Contenido, v)
+	if err != nil {
+		return nil, err
+	}
+	a.IDReporte = n.IDReporte
+	if err := s.repo.Crear(ctx, a); err != nil {
+		s.descartar(a.Ruta) // compensación: sin registro en BD no debe quedar el archivo
+		if errors.Is(err, repositories.ErrReporteNoExiste) {
+			return nil, response.NotFound(msgReporteNoEncontrado)
+		}
+		return nil, err
+	}
+	return a, nil
+}
+
+// escribir guarda el contenido en disco y devuelve los metadatos (sin ID ni IDReporte).
+func (s *ArchivoService) escribir(ctx context.Context, mime string, contenido io.Reader, v dominio.VarianteArchivo) (*models.Archivo, error) {
+	ext, ok := dominio.ExtensionPorMIME(mime)
 	if !ok {
 		return nil, response.BadRequest("Formato no permitido: usa JPEG, PNG o WebP")
 	}
 
-	g, err := s.almacen.Guardar(ctx, v, ext, n.Contenido)
+	g, err := s.almacen.Guardar(ctx, v, ext, contenido)
 	switch {
 	case errors.Is(err, storage.ErrVacio):
 		return nil, response.BadRequest("El archivo está vacío")
@@ -111,23 +149,14 @@ func (s *ArchivoService) guardar(ctx context.Context, n NuevoArchivo, v dominio.
 		return nil, fmt.Errorf("guardar en disco: %w", err)
 	}
 
-	a := &models.Archivo{
-		IDReporte: n.IDReporte,
-		Tipo:      "imagen",
-		Variante:  v,
-		MIME:      n.MIME,
-		Tamano:    g.Tamano,
-		Ruta:      g.Ruta,
-		SHA256:    g.SHA256,
-	}
-	if err := s.repo.Crear(ctx, a); err != nil {
-		s.descartar(g.Ruta) // compensación: sin registro en BD no debe quedar el archivo
-		if errors.Is(err, repositories.ErrReporteNoExiste) {
-			return nil, response.NotFound(msgReporteNoEncontrado)
-		}
-		return nil, err
-	}
-	return a, nil
+	return &models.Archivo{
+		Tipo:     "imagen",
+		Variante: v,
+		MIME:     mime,
+		Tamano:   g.Tamano,
+		Ruta:     g.Ruta,
+		SHA256:   g.SHA256,
+	}, nil
 }
 
 // Obtener devuelve los metadatos y el archivo abierto. Quien llama debe cerrar el *os.File.

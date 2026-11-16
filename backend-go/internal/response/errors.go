@@ -12,6 +12,7 @@ type AppError struct {
 	Status  int
 	Code    string
 	Message string
+	Details any // opcional: errores por campo
 }
 
 func (e *AppError) Error() string { return e.Message }
@@ -31,6 +32,12 @@ func NotFound(msg string) *AppError {
 func Conflict(msg string) *AppError {
 	return &AppError{Status: http.StatusConflict, Code: CodeConflict, Message: msg}
 }
+
+// Validation es el mismo 400 VALIDACION_FALLIDA de ValidationError, pero devuelto desde un service.
+func Validation(details any) *AppError {
+	return &AppError{Status: http.StatusBadRequest, Code: CodeValidation,
+		Message: "Los datos enviados no son válidos", Details: details}
+}
 func PayloadTooLarge(msg string) *AppError {
 	return &AppError{Status: http.StatusRequestEntityTooLarge, Code: CodePayloadTooLarge, Message: msg}
 }
@@ -39,7 +46,9 @@ func PayloadTooLarge(msg string) *AppError {
 func HandleError(c *gin.Context, err error) {
 	var appErr *AppError
 	if errors.As(err, &appErr) {
-		Error(c, appErr.Status, appErr.Code, appErr.Message)
+		c.AbortWithStatusJSON(appErr.Status, Body{Error: &ErrorBody{
+			Code: appErr.Code, Message: appErr.Message, Details: appErr.Details,
+		}})
 		return
 	}
 	_ = c.Error(err) // el middleware de logging lo registra
