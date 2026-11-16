@@ -10,7 +10,7 @@ El servicio Python recibe la **ruta relativa** de una foto que Go ya guardó y s
 
 - **Sí:** cargar el modelo una vez, leer la foto de forma segura, preprocesarla, inferir y aplicar la regla de decisión (`decision.py`, HU 05.2).
 - **No:** guardar en la base de datos, cambiar el estado del reporte ni escribir o borrar fotos. Eso lo decide el backend en Go.
-- **Pendiente:** la red. En la HU 05.4 se define el contrato gRPC y en la 05.5 se expone el servidor y el `GET /health` que ya consulta Go (`INFERENCE_URL`).
+- **La red:** el contrato gRPC está en [`contrato-grpc.md`](./contrato-grpc.md) (HU 05.4) y el servidor con `GET /health` en [`servidor-inferencia.md`](./servidor-inferencia.md) (HU 05.5).
 
 ```
 Go (04.1)  ──ruta relativa──▶  ServicioInferencia.inferir_archivo()

@@ -70,13 +70,13 @@ Un error **no** viaja dentro de `DetectarResponse`: se responde con un **código
 
 | `urbia-codigo` | Código gRPC | Lo genera | Causa | ¿Reintentar? |
 |---|---|---|---|---|
-| `SOLICITUD_INVALIDA` | `INVALID_ARGUMENT` | Python | Falta `id_reporte`, `id_archivo` o `ruta_archivo`, o `max_cajas` > 100 | No |
-| `RUTA_INVALIDA` | `INVALID_ARGUMENT` | Python | La ruta no cumple el patrón de Go o sale de `STORAGE_DIR` | No |
+| `SOLICITUD_INVALIDA` | `INVALID_ARGUMENT` | Python | Falta `id_reporte`, `id_archivo` o `ruta_archivo`, `max_cajas` > 100, o `id_solicitud` > 128 caracteres o con caracteres de control | No |
+| `RUTA_INVALIDA` | `INVALID_ARGUMENT` | Python | La ruta no cumple el patrón de Go (se revisa antes de tocar el disco) o sale de `STORAGE_DIR` | No |
 | `IMAGEN_INVALIDA` | `INVALID_ARGUMENT` | Python | Formato, tamaño o dimensiones no válidos; archivo dañado | No |
 | `IMAGEN_NO_ENCONTRADA` | `NOT_FOUND` | Python | La foto no existe o está vacía | No |
 | `FALLO_INFERENCIA` | `INTERNAL` | Python | El modelo falló con esa imagen (p. ej. sin memoria en la GPU) | Sí, una vez |
 | `MODELO_NO_DISPONIBLE` / `MODELO_INVALIDO` | `UNAVAILABLE` | Python | El modelo no está cargado | Sí, más tarde |
-| `TIEMPO_AGOTADO` | `DEADLINE_EXCEEDED` | Python o Go | Se acabó el tiempo de la llamada | Sí, más tarde |
+| `TIEMPO_AGOTADO` | `DEADLINE_EXCEEDED` | Python o Go | Se acabó el tiempo de la llamada o la inferencia superó `URBIA_TIMEOUT_INFERENCIA` (05.5) | Sí, más tarde |
 | `SERVICIO_NO_DISPONIBLE` | `UNAVAILABLE` | Go | No hay conexión con Python (apagado, puerto equivocado) | Sí, más tarde |
 | `CANCELADO` | `CANCELED` | Go | El contexto se canceló (p. ej. el cliente HTTP cerró la conexión) | No |
 | `CONTRATO_INVALIDO` | `UNKNOWN` / `UNIMPLEMENTED` | Go | Respuesta que no cumple el contrato o RPC inexistente | No: hay que alinear versiones |
@@ -144,7 +144,7 @@ go run ./cmd/probar-inferencia -ruta originales/2026/11/<26 caracteres>.jpg
 go run ./cmd/probar-inferencia -ruta ../../etc/passwd
 ```
 
-El servidor de esta HU es **mínimo**, solo para validar el contrato. La HU 05.5 lo completa: health check HTTP (`GET /health` en `INFERENCE_URL`), log por petición, apagado ordenado con `SIGTERM` y configuración para Docker.
+El servidor completo (health check `GET /health`, validación previa de la ruta, límite de tiempo por inferencia, log por petición y apagado ordenado) está documentado en [`servidor-inferencia.md`](./servidor-inferencia.md) (HU 05.5).
 
 ## 10. Evidencia
 
