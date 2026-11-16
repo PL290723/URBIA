@@ -82,18 +82,23 @@ func run() error {
 	healthSvc := services.NewHealthService(healthRepo, inferencia, log, version, inicio)
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
 	authSvc, err := services.NewAuthService(usuarioRepo, tokens)
-	archivoRepo := repositories.NewArchivoRepository(pool)
-	saneador := imagenes.NewSaneador(imagenes.LimitesPorDefecto(), 2) // máx. 2 imágenes procesándose a la vez
-	archivoSvc := services.NewArchivoService(archivoRepo, almacen, saneador, log)
 	if err != nil {
 		return err
 	}
+	archivoRepo := repositories.NewArchivoRepository(pool)
+	saneador := imagenes.NewSaneador(imagenes.LimitesPorDefecto(), 2) // máx. 2 imágenes procesándose a la vez
+	archivoSvc := services.NewArchivoService(archivoRepo, almacen, saneador, log)
+
+	reporteRepo := repositories.NewReporteRepository(pool)
+	categoriaRepo := repositories.NewCategoriaRepository(pool)
+	reporteSvc := services.NewReporteService(reporteRepo, categoriaRepo, archivoSvc, log)
 
 	r := router.New(log, tokens, router.Handlers{
 		Health:  handlers.NewHealthHandler(healthSvc),
 		Auth:    handlers.NewAuthHandler(authSvc),
 		Usuario: handlers.NewUsuarioHandler(usuarioSvc),
 		Archivo: handlers.NewArchivoHandler(archivoSvc),
+		Reporte: handlers.NewReporteHandler(reporteSvc),
 	})
 
 	srv := &http.Server{
