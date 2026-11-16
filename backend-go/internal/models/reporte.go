@@ -20,6 +20,7 @@ type Reporte struct {
 	Categoria     *Categoria        `json:"categoria"` // null si el ciudadano no la eligió
 	Ubicacion     dominio.Ubicacion `json:"ubicacion"`
 	Foto          *Archivo          `json:"foto"`
+	Sugerencia    *Sugerencia       `json:"sugerencia"` // sugerencia de la IA (HU 06.2)
 	FechaCreacion time.Time         `json:"fecha_creacion"`
 
 	IDUsuario int64 `json:"-"` // autor; sale del token, nunca del cliente

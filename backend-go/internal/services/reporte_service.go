@@ -18,20 +18,25 @@ var errCategoriaInvalida = response.Validation([]dominio.ErrorCampo{{
 }})
 
 type ReporteService struct {
-	reportes   *repositories.ReporteRepository
-	categorias *repositories.CategoriaRepository
-	archivos   *ArchivoService
-	log        *slog.Logger
+	reportes    *repositories.ReporteRepository
+	categorias  *repositories.CategoriaRepository
+	archivos    *ArchivoService
+	sugerencias *SugerenciaService
+	log         *slog.Logger
 }
 
 func NewReporteService(reportes *repositories.ReporteRepository, categorias *repositories.CategoriaRepository,
-	archivos *ArchivoService, log *slog.Logger) *ReporteService {
-	return &ReporteService{reportes: reportes, categorias: categorias, archivos: archivos, log: log}
+	archivos *ArchivoService, sugerencias *SugerenciaService, log *slog.Logger) *ReporteService {
+	return &ReporteService{reportes: reportes, categorias: categorias, archivos: archivos,
+		sugerencias: sugerencias, log: log}
 }
 
-// Crear registra un reporte ciudadano con su fotografía y ubicación (HU 06.1).
-// Orden: lo barato primero (permiso y categoría), luego la imagen, al final la transacción.
-func (s *ReporteService) Crear(ctx context.Context, sesion auth.Sesion, n dominio.NuevoReporte, foto io.Reader) (*models.Reporte, error) {
+// Crear registra un reporte ciudadano con su fotografía y ubicación (HU 06.1) y
+// después pide a la IA una sugerencia de categoría (HU 06.2).
+// Orden: lo barato primero (permiso y categoría), luego la imagen, la transacción
+// y AL FINAL la inferencia: si la IA falla, el reporte ya quedó guardado.
+func (s *ReporteService) Crear(ctx context.Context, sesion auth.Sesion, n dominio.NuevoReporte,
+	foto io.Reader, idSolicitud string) (*models.Reporte, error) {
 	if !sesion.Rol.PuedeCrearReporte() { // la ruta ya lo filtra; esto es defensa adicional
 		return nil, response.Forbidden("Solo los ciudadanos pueden registrar reportes")
 	}
@@ -75,5 +80,7 @@ func (s *ReporteService) Crear(ctx context.Context, sesion auth.Sesion, n domini
 	s.log.Info("reporte creado",
 		"id_reporte", rep.ID, "id_usuario", rep.IDUsuario, "id_archivo", archivo.ID,
 		"origen_ubicacion", rep.Ubicacion.Origen, "con_categoria", categoria != nil)
+	// Después del commit: la IA solo agrega información, nunca puede deshacer el reporte.
+	rep.Sugerencia = s.sugerencias.Sugerir(ctx, rep, idSolicitud)
 	return rep, nil
 }

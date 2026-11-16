@@ -89,9 +89,27 @@ func run() error {
 	saneador := imagenes.NewSaneador(imagenes.LimitesPorDefecto(), 2) // máx. 2 imágenes procesándose a la vez
 	archivoSvc := services.NewArchivoService(archivoRepo, almacen, saneador, log)
 
+	// Cliente gRPC de inferencia (HU 06.2). Sin INFERENCE_GRPC_ADDR la API funciona
+	// igual y los reportes se guardan con la sugerencia "no_disponible".
+	// Ojo: detector se queda en nil (interfaz vacía) si no está configurado.
+	var detector services.Detector
+	if cfg.InferenceGRPCAddr != "" {
+		clienteDeteccion, err := clients.NuevoClienteDeteccion(cfg.InferenceGRPCAddr, cfg.InferenceGRPCTimeout)
+		if err != nil {
+			return err
+		}
+		defer clienteDeteccion.Cerrar()
+		detector = clienteDeteccion
+		log.Info("sugerencias de categoría con IA activas", "grpc", cfg.InferenceGRPCAddr)
+	} else {
+		log.Warn("INFERENCE_GRPC_ADDR no configurada: los reportes se guardarán sin sugerencia de la IA")
+	}
+
 	reporteRepo := repositories.NewReporteRepository(pool)
 	categoriaRepo := repositories.NewCategoriaRepository(pool)
-	reporteSvc := services.NewReporteService(reporteRepo, categoriaRepo, archivoSvc, log)
+	deteccionRepo := repositories.NewDeteccionRepository(pool)
+	sugerenciaSvc := services.NewSugerenciaService(detector, deteccionRepo, categoriaRepo, log)
+	reporteSvc := services.NewReporteService(reporteRepo, categoriaRepo, archivoSvc, sugerenciaSvc, log)
 
 	r := router.New(log, tokens, router.Handlers{
 		Health:  handlers.NewHealthHandler(healthSvc),
