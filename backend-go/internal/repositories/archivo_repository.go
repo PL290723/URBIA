@@ -23,10 +23,15 @@ type ArchivoRepository struct{ db *pgxpool.Pool }
 func NewArchivoRepository(db *pgxpool.Pool) *ArchivoRepository { return &ArchivoRepository{db: db} }
 
 func (r *ArchivoRepository) Crear(ctx context.Context, a *models.Archivo) error {
+	return insertarArchivo(ctx, r.db, a)
+}
+
+// insertarArchivo funciona con el pool o dentro de una transacción (ReporteRepository.Crear).
+func insertarArchivo(ctx context.Context, db ejecutor, a *models.Archivo) error {
 	const q = `INSERT INTO archivo (id_reporte, tipo, variante, ruta, mime, tamano, sha256)
 	           VALUES ($1, $2, $3, $4, $5, $6, $7)
 	           RETURNING id_archivo, fecha_subida`
-	err := r.db.QueryRow(ctx, q, a.IDReporte, a.Tipo, string(a.Variante), a.Ruta, a.MIME, a.Tamano, a.SHA256).
+	err := db.QueryRow(ctx, q, a.IDReporte, a.Tipo, string(a.Variante), a.Ruta, a.MIME, a.Tamano, a.SHA256).
 		Scan(&a.ID, &a.FechaSubida)
 
 	var pgErr *pgconn.PgError
