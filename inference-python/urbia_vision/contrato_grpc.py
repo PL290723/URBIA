@@ -1,15 +1,20 @@
 """
-Lado Python del contrato gRPC `urbia.inferencia.v1` (HU 05.4).
+Lado Python del contrato gRPC `urbia.inferencia.v1` (HU 05.4, completado en 05.5).
 
 Traduce entre los mensajes del .proto y el ServicioInferencia de la HU 05.3:
 
-    DetectarRequest  --validar_solicitud-->  servicio.inferir_archivo(ruta)
-    ResultadoInferencia  --a_respuesta-->    DetectarResponse
+    DetectarRequest  --validar_solicitud-->  servicio.inferir_archivo(ruta)   (con límite de tiempo)
+    ResultadoInferencia  --normalizar-->  --a_respuesta-->  DetectarResponse
     resultado "error" + codigo_error  -->    código gRPC + trailer "urbia-codigo"
 
-El servidor completo (puerto, health check, logging por petición, apagado
-ordenado) es la HU 05.5. Aquí `crear_servidor()` arma uno mínimo para
-validar que Go y Python se entienden con el contrato.
+HU 05.5 agrega:
+- Validación del identificador y de la ruta ANTES de tocar el disco o el modelo.
+- Límite de tiempo por inferencia (`timeout_inferencia`), además del deadline de Go.
+- Normalización del resultado (normalizacion.py) antes de responder.
+- Interceptores (log por petición) en `crear_servidor()`.
+
+El proceso completo (health check, señales, apagado ordenado) está en servidor.py.
+Este módulo NUNCA escribe en disco ni en la base de datos: solo lee y responde.
 """
 
 from __future__ import annotations
@@ -22,13 +27,18 @@ import grpc
 from urbia.inferencia.v1 import inferencia_pb2 as pb
 from urbia.inferencia.v1 import inferencia_pb2_grpc as pb_grpc
 from urbia_vision import clases
+from urbia_vision.almacen import PATRON_RUTA
 from urbia_vision.decision import DETECTADO, NO_DETECTADO
+from urbia_vision.errores import ErrorInferencia
+from urbia_vision.normalizacion import normalizar
 
 log = logging.getLogger("urbia.inferencia")
 
 VERSION_CONTRATO = "1.0.0"
 TRAILER_CODIGO = "urbia-codigo"
 MAX_CAJAS_PERMITIDO = 100
+MAX_LARGO_ID_SOLICITUD = 128
+MAX_LARGO_RUTA = 255   # archivo.ruta es VARCHAR(255)
 
 # Margen mínimo de tiempo para empezar una inferencia. Si a la petición le
 # queda menos, se responde DEADLINE_EXCEEDED sin gastar la GPU/CPU.
@@ -52,16 +62,26 @@ def codigo_grpc(codigo_urbia: str) -> grpc.StatusCode:
     return CODIGOS_GRPC.get(codigo_urbia, grpc.StatusCode.UNKNOWN)
 
 
-def validar_solicitud(req: pb.DetectarRequest) -> str | None:
-    """Mensaje de error si la solicitud está mal formada, o None. La ruta la valida 05.3."""
+def validar_solicitud(req: pb.DetectarRequest) -> tuple[str, str] | None:
+    """(codigo_urbia, mensaje) si la solicitud no se debe procesar, o None.
+
+    Se valida todo lo que se puede sin tocar el disco: el lector de 05.3 vuelve
+    a revisar la ruta y además que no salga de STORAGE_DIR (symlinks, junctions).
+    """
+    if len(req.id_solicitud) > MAX_LARGO_ID_SOLICITUD:
+        return "SOLICITUD_INVALIDA", f"id_solicitud no puede tener más de {MAX_LARGO_ID_SOLICITUD} caracteres"
+    if any(not c.isprintable() for c in req.id_solicitud):
+        return "SOLICITUD_INVALIDA", "id_solicitud contiene caracteres de control"
     if req.id_reporte <= 0:
-        return "id_reporte es obligatorio y debe ser mayor que 0"
+        return "SOLICITUD_INVALIDA", "id_reporte es obligatorio y debe ser mayor que 0"
     if req.id_archivo <= 0:
-        return "id_archivo es obligatorio y debe ser mayor que 0"
+        return "SOLICITUD_INVALIDA", "id_archivo es obligatorio y debe ser mayor que 0"
     if not req.ruta_archivo:
-        return "ruta_archivo es obligatoria"
+        return "SOLICITUD_INVALIDA", "ruta_archivo es obligatoria"
     if req.opciones.max_cajas > MAX_CAJAS_PERMITIDO:
-        return f"opciones.max_cajas debe estar entre 0 y {MAX_CAJAS_PERMITIDO}"
+        return "SOLICITUD_INVALIDA", f"opciones.max_cajas debe estar entre 0 y {MAX_CAJAS_PERMITIDO}"
+    if len(req.ruta_archivo) > MAX_LARGO_RUTA or not PATRON_RUTA.fullmatch(req.ruta_archivo):
+        return "RUTA_INVALIDA", "ruta_archivo no tiene el formato de una foto guardada por URBIA"
     return None
 
 
@@ -71,7 +91,7 @@ def modelo_usado(info) -> pb.ModeloUsado:
 
 
 def a_respuesta(resultado, req: pb.DetectarRequest) -> pb.DetectarResponse:
-    """ResultadoInferencia (05.3, sin error) -> DetectarResponse."""
+    """ResultadoInferencia (05.3, sin error y ya normalizado) -> DetectarResponse."""
     cajas = [] if req.opciones.omitir_cajas else list(resultado.cajas)
     if req.opciones.max_cajas:
         cajas = cajas[: req.opciones.max_cajas]   # ya vienen de mayor a menor confianza
@@ -96,26 +116,39 @@ def _abortar(context: grpc.ServicerContext, codigo: str, mensaje: str):
 
 
 class InferenciaServicer(pb_grpc.InferenciaServiceServicer):
-    """Implementa el contrato sobre un ServicioInferencia ya cargado (HU 05.3)."""
+    """Implementa el contrato sobre un ServicioInferencia ya cargado (HU 05.3).
 
-    def __init__(self, servicio):
+    timeout_inferencia: segundos máximos por inferencia (None = solo el deadline
+    del cliente). La inferencia corre en `ejecutor` para poder dejar de esperarla;
+    si no se pasa uno, el servicer crea el suyo.
+    """
+
+    def __init__(self, servicio, timeout_inferencia: float | None = None,
+                 ejecutor: futures.Executor | None = None):
         self.servicio = servicio
+        self.timeout_inferencia = timeout_inferencia
+        self._ejecutor = ejecutor
+        if timeout_inferencia is not None and ejecutor is None:
+            self._ejecutor = futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="inferencia")
 
     def Detectar(self, request: pb.DetectarRequest, context: grpc.ServicerContext) -> pb.DetectarResponse:
         error = validar_solicitud(request)
         if error:
-            _abortar(context, "SOLICITUD_INVALIDA", error)
+            _abortar(context, *error)
 
-        restante = context.time_remaining()
-        if restante is not None and restante < MARGEN_MINIMO_SEGUNDOS:
+        limite = self._limite(context)
+        if limite is not None and limite < MARGEN_MINIMO_SEGUNDOS:
             _abortar(context, "TIEMPO_AGOTADO", "La solicitud llegó sin tiempo suficiente para inferir")
 
-        r = self.servicio.inferir_archivo(request.ruta_archivo)
-        log.info("grpc Detectar id_solicitud=%s id_reporte=%d id_archivo=%d resultado=%s",
-                 request.id_solicitud or "-", request.id_reporte, request.id_archivo, r.resultado)
-
+        r = self._inferir(request.ruta_archivo, limite, context)
         if r.resultado not in _RESULTADOS:
             _abortar(context, r.codigo_error or "FALLO_INFERENCIA", r.mensaje_error or "Error al inferir")
+
+        try:
+            r = normalizar(r)
+        except ErrorInferencia as e:
+            log.error("resultado descartado id_solicitud=%s: %s", request.id_solicitud or "-", e.mensaje)
+            _abortar(context, e.codigo, e.mensaje)
         return a_respuesta(r, request)
 
     def ObtenerInfo(self, request: pb.ObtenerInfoRequest, context: grpc.ServicerContext) -> pb.ObtenerInfoResponse:
@@ -132,11 +165,42 @@ class InferenciaServicer(pb_grpc.InferenciaServiceServicer):
             errores=estado["errores"],
         )
 
+    # ---------------------------------------------------------------- interno
 
-def crear_servidor(servicio, direccion: str, max_hilos: int = 4) -> tuple[grpc.Server, int]:
+    def _limite(self, context) -> float | None:
+        """Lo que sea menor: el tiempo que le queda al cliente o timeout_inferencia."""
+        restante = context.time_remaining()
+        candidatos = [t for t in (restante, self.timeout_inferencia) if t is not None]
+        return min(candidatos) if candidatos else None
+
+    def _inferir(self, ruta: str, limite: float | None, context):
+        if self._ejecutor is None or limite is None:
+            return self.servicio.inferir_archivo(ruta)
+        futuro = self._ejecutor.submit(self.servicio.inferir_archivo, ruta)
+        try:
+            return futuro.result(timeout=limite)
+        except futures.TimeoutError:
+            # Si aún no empezaba, se cancela. Si ya empezó no se puede interrumpir
+            # (PyTorch no lo permite): termina en segundo plano y se descarta.
+            futuro.cancel()
+            _abortar(context, "TIEMPO_AGOTADO", f"La inferencia superó {limite:.1f} s")
+
+    def cerrar(self) -> None:
+        if self._ejecutor is not None:
+            self._ejecutor.shutdown(wait=False, cancel_futures=True)
+
+
+def crear_servidor(servicio, direccion: str, max_hilos: int = 4, *,
+                   timeout_inferencia: float | None = None,
+                   ejecutor: futures.Executor | None = None,
+                   interceptores=()) -> tuple[grpc.Server, int]:
     """Servidor gRPC sin TLS (red interna de Docker). Devuelve (servidor, puerto)."""
-    servidor = grpc.server(futures.ThreadPoolExecutor(max_workers=max_hilos))
-    pb_grpc.add_InferenciaServiceServicer_to_server(InferenciaServicer(servicio), servidor)
+    servidor = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=max_hilos, thread_name_prefix="grpc"),
+        interceptors=list(interceptores),
+    )
+    servicer = InferenciaServicer(servicio, timeout_inferencia, ejecutor)
+    pb_grpc.add_InferenciaServiceServicer_to_server(servicer, servidor)
     puerto = servidor.add_insecure_port(direccion)
     if puerto == 0:
         raise OSError(f"No se pudo abrir {direccion} (¿puerto ocupado?)")
