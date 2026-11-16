@@ -1,0 +1,130 @@
+// Contrato gRPC entre el backend en Go y el servicio de inferencia en Python.
+//
+// HU 05.4 — Definir contrato gRPC entre Go y Python.
+// Versión del contrato: 1.0.0. Reglas de versionado en docs/vision/contrato-grpc.md:
+//   - Nunca se cambia ni se reutiliza el número de un campo.
+//   - Solo se AGREGAN campos u operaciones (cambio compatible -> 1.x.0).
+//   - Un campo que se deja de usar se marca `reserved`.
+//   - Un cambio incompatible crea un paquete nuevo: urbia.inferencia.v2.
+//
+// Errores: se devuelven como códigos de estado gRPC (no dentro de la respuesta)
+// y el código de URBIA va en el metadato final (trailer) "urbia-codigo".
+//
+//   urbia-codigo           Código gRPC          ¿Reintentar?
+//   SOLICITUD_INVALIDA     INVALID_ARGUMENT     No
+//   RUTA_INVALIDA          INVALID_ARGUMENT     No
+//   IMAGEN_INVALIDA        INVALID_ARGUMENT     No
+//   IMAGEN_NO_ENCONTRADA   NOT_FOUND            No
+//   FALLO_INFERENCIA       INTERNAL             Sí, una vez
+//   MODELO_NO_DISPONIBLE   UNAVAILABLE          Sí, más tarde
+//   MODELO_INVALIDO        UNAVAILABLE          Sí, más tarde
+//   TIEMPO_AGOTADO         DEADLINE_EXCEEDED    Sí, más tarde
+
+syntax = "proto3";
+
+package urbia.inferencia.v1;
+
+option go_package = "github.com/PL290723/URBIA/backend-go/internal/gen/inferenciav1;inferenciav1";
+
+service InferenciaService {
+  // Detecta incidencias en una foto que Go ya guardó en STORAGE_DIR (HU 04.1).
+  // El servicio solo lee la foto y responde: no guarda nada ni cambia el reporte.
+  rpc Detectar(DetectarRequest) returns (DetectarResponse);
+
+  // Modelo cargado, umbral, clases y contadores. Útil para logs y diagnóstico.
+  rpc ObtenerInfo(ObtenerInfoRequest) returns (ObtenerInfoResponse);
+}
+
+// ----------------------------------------------------------------- Detectar
+
+message DetectarRequest {
+  // X-Request-ID de la petición HTTP original, para seguirla en los logs de
+  // ambos servicios. Opcional; se devuelve igual en la respuesta.
+  string id_solicitud = 1;
+
+  // reporte.id_reporte y archivo.id_archivo. Obligatorios (> 0). Python solo
+  // los usa en los logs: nunca consulta ni modifica la base de datos.
+  int64 id_reporte = 2;
+  int64 id_archivo = 3;
+
+  // archivo.ruta: ruta relativa a STORAGE_DIR, tal como la guarda Go.
+  // Ejemplo: "originales/2026/11/abcdefghijklmnopqrstuvwxyz.jpg"
+  string ruta_archivo = 4;
+
+  OpcionesDeteccion opciones = 5;
+}
+
+message OpcionesDeteccion {
+  // true: no devolver las cajas, solo el resultado (respuesta más pequeña).
+  bool omitir_cajas = 1;
+
+  // Máximo de cajas a devolver, las de mayor confianza. 0 = sin límite.
+  // Valores permitidos: 0 a 100.
+  uint32 max_cajas = 2;
+
+  // El umbral de confianza NO es una opción: lo fija el modelo publicado
+  // (config/modelo.json) para que todas las sugerencias sean comparables.
+}
+
+enum Resultado {
+  // Nunca se envía. Si Go lo recibe, el contrato no coincide entre servicios.
+  RESULTADO_NO_ESPECIFICADO = 0;
+  // Al menos una caja superó el umbral: se sugiere `clase_detectada`.
+  RESULTADO_DETECTADO = 1;
+  // Ninguna caja superó el umbral: no hay detección concluyente.
+  RESULTADO_NO_DETECTADO = 2;
+}
+
+// Caja en píxeles de la foto original (con la orientación ya aplicada).
+message Caja {
+  string clase = 1;      // "bache" | "basura" (= categoria.nombre)
+  float confianza = 2;   // 0..1
+  float x1 = 3;
+  float y1 = 4;
+  float x2 = 5;
+  float y2 = 6;
+}
+
+message ModeloUsado {
+  string nombre = 1;            // deteccion.modelo,         p. ej. "urbia-yolo26s"
+  string version = 2;           // deteccion.version_modelo, p. ej. "1.0.0"
+  float umbral_confianza = 3;   // umbral con el que se decidió
+}
+
+message DetectarResponse {
+  string id_solicitud = 1;
+
+  Resultado resultado = 2;
+
+  // Solo con RESULTADO_DETECTADO; vacío y 0 con RESULTADO_NO_DETECTADO
+  // (en la base de datos se guardan como NULL).
+  string clase_detectada = 3;
+  float confianza = 4;
+
+  // Ordenadas de mayor a menor confianza. Vacío si `omitir_cajas`.
+  repeated Caja cajas = 5;
+
+  ModeloUsado modelo = 6;
+
+  // Tamaño de la foto original en píxeles.
+  uint32 ancho = 7;
+  uint32 alto = 8;
+
+  // Tiempo de procesamiento dentro del servicio Python.
+  float milisegundos = 9;
+}
+
+// -------------------------------------------------------------- ObtenerInfo
+
+message ObtenerInfoRequest {}
+
+message ObtenerInfoResponse {
+  string version_contrato = 1;   // "1.0.0"
+  ModeloUsado modelo = 2;
+  repeated string clases = 3;    // índice = id de la clase: ["bache", "basura"]
+  uint32 imgsz = 4;
+  string dispositivo = 5;        // "cpu" o "0" (GPU)
+  string sha256_pesos = 6;
+  uint64 peticiones = 7;
+  uint64 errores = 8;
+}
