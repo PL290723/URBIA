@@ -29,6 +29,9 @@ type Config struct {
 	InferenceGRPCAddr    string
 	InferenceGRPCTimeout time.Duration
 	StorageDir           string
+	// Búsqueda de reportes cercanos/duplicados (HU 06.5).
+	DuplicadosRadioM      int
+	DuplicadosVentanaDias int
 }
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
@@ -98,6 +101,8 @@ func Load() (*Config, error) {
 	}
 	cfg.InferenceGRPCTimeout = duracionPositiva("INFERENCE_GRPC_TIMEOUT", "10s", &errs)
 	cfg.StorageDir = strings.TrimSpace(getEnv("STORAGE_DIR", "./storage"))
+	cfg.DuplicadosRadioM = enteroEnRango("DUPLICADOS_RADIO_M", 50, 1, 1000, &errs)
+	cfg.DuplicadosVentanaDias = enteroEnRango("DUPLICADOS_VENTANA_DIAS", 30, 1, 365, &errs)
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -131,6 +136,14 @@ func duracionPositiva(key, def string, errs *[]error) time.Duration {
 	return d
 }
 
+func enteroEnRango(key string, def, minimo, maximo int, errs *[]error) int {
+	n, err := strconv.Atoi(getEnv(key, strconv.Itoa(def)))
+	if err != nil || n < minimo || n > maximo {
+		*errs = append(*errs, fmt.Errorf("%s debe ser un entero entre %d y %d", key, minimo, maximo))
+	}
+	return n
+}
+
 // ResumenSeguro devuelve la configuración apta para logs: sin contraseñas ni secretos.
 func (c *Config) ResumenSeguro() []any {
 	db := "(formato clave=valor, oculto)"
@@ -158,5 +171,7 @@ func (c *Config) ResumenSeguro() []any {
 		"inferencia_grpc", inferenciaGRPC,
 		"inferencia_grpc_timeout", c.InferenceGRPCTimeout.String(),
 		"almacenamiento", c.StorageDir,
+		"duplicados_radio_m", c.DuplicadosRadioM,
+		"duplicados_ventana_dias", c.DuplicadosVentanaDias,
 	}
 }
