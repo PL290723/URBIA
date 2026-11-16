@@ -82,3 +82,10 @@ Ejemplo de `201`:
   }
 }
 ```
+
+
+## Sugerencia de la IA (HU 06.2)
+
+Después del commit se pide al servicio de inferencia una sugerencia de categoría; llega en
+`data.sugerencia` y nunca cambia la categoría elegida por el ciudadano. Si la IA falla, el
+reporte se conserva igual (201). Ver [sugerencias.md](sugerencias.md).
