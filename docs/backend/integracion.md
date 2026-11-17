@@ -18,7 +18,7 @@ Bruno / prueba ──HTTP──▶ API Go ──SQL──▶ PostgreSQL + PostGI
 | Inferencia exitosa | `TestReporte_InferenciaExitosa` | `POST /reportes` → 201 con sugerencia, `Location`, `X-Request-ID`; fila en `deteccion` con modelo/versión de Python; foto en disco; el detalle muestra lo mismo |
 | IA apagada | `TestReporte_IAApagada` | Sin configurar o con Python detenido: el reporte **se guarda** (201) con `no_disponible`, la detección queda como `error` con su código, no espera el timeout completo; `/health` queda `degradado` (no `caido`) |
 | Errores | `TestErrores_BaseDeDatos`, `TestErrores_Timeout`, `TestErrores_ArchivoInexistente` | BD apagada al arrancar (falla en ≤ 5 s); BD caída en caliente (`/health` 503, login 500 sin 401 engañoso, no quedan fotos huérfanas); timeout → `TIEMPO_AGOTADO` reintentable y reporte guardado; archivo inexistente → `IMAGEN_NO_ENCONTRADA`, ruta maliciosa → `RUTA_INVALIDA`, foto borrada del disco → 404 controlado. Ninguna respuesta filtra detalles internos |
-
+| Recorrido completo | `TestRegresion_RecorridoCompletoDeUnReporte` | Reporte -> persistencia -> detección -> corrección -> estados e historial -> consultas -> reinicio. Ver [regresion.md](regresion.md) |
 Las pruebas arman la API con `internal/app.NuevoRouter`, **el mismo ensamblado que
 `cmd/api`**; solo cambian las dependencias externas (pool, detector, monitor).
 
