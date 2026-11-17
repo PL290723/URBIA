@@ -32,6 +32,8 @@ const (
 	CodePayloadTooLarge    = "ARCHIVO_DEMASIADO_GRANDE"
 	CodeUnsupportedMedia   = "FORMATO_NO_PERMITIDO"
 	CodeInvalidImage       = "IMAGEN_INVALIDA"
+	CodeBodyTooLarge       = "CUERPO_DEMASIADO_GRANDE"
+	CodeTooManyRequests    = "DEMASIADAS_SOLICITUDES"
 )
 
 func OK(c *gin.Context, data any)      { c.JSON(http.StatusOK, Body{Success: true, Data: data}) }

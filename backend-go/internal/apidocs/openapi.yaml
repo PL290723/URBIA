@@ -45,15 +45,27 @@ info:
     | 405 | `METODO_NO_PERMITIDO` | La ruta existe pero no con ese método |
     | 409 | `CONFLICTO` | La operación choca con el estado actual (correo repetido, transición no permitida…) |
     | 413 | `ARCHIVO_DEMASIADO_GRANDE` | Imagen de más de 10 MB |
+    | 413 | `CUERPO_DEMASIADO_GRANDE` | Cuerpo JSON de más de 64 KiB (aplica a cualquier ruta) |
     | 415 | `FORMATO_NO_PERMITIDO` | La imagen no es JPEG, PNG ni WebP (se revisa el contenido real) |
     | 422 | `IMAGEN_INVALIDA` | Imagen dañada o con dimensiones fuera de rango |
+    | 429 | `DEMASIADAS_SOLICITUDES` | Demasiados logins fallidos desde la misma IP (ver `Retry-After`) |
     | 500 | `ERROR_INTERNO` | Error inesperado (el detalle solo queda en los logs) |
     | 503 | `SERVICIO_NO_DISPONIBLE` | Health check: la base de datos no responde |
 
     ## Trazabilidad
-    Toda respuesta incluye `X-Request-ID`. Si el cliente lo envía (máx. 64 caracteres) se
-    reutiliza; si no, se genera. Sirve para buscar la petición en los logs del servidor.
+    Toda respuesta incluye `X-Request-ID`. Si el cliente lo envía (1 a 64 caracteres, solo
+    letras, dígitos, `.`, `_` y `-`) se reutiliza; si no, se genera. Sirve para buscar la
+    petición en los logs del servidor.
 
+    ## Seguridad
+    - **CORS:** solo los orígenes de `CORS_ALLOWED_ORIGINS` reciben
+      `Access-Control-Allow-Origin` (nunca `*`, sin credenciales/cookies). Un preflight
+      `OPTIONS` de otro origen responde **403**.
+    - **Límites:** cuerpos JSON ≤ 64 KiB; fotos ≤ 10 MB y solo JPEG/PNG/WebP por contenido real.
+    - **Login:** tras `LOGIN_MAX_INTENTOS` fallos por IP en `LOGIN_VENTANA`, **429** con `Retry-After`.
+    - **Encabezados:** toda respuesta lleva `X-Content-Type-Options: nosniff`,
+      `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y, salvo el visor, una CSP
+      `default-src 'none'`. Por defecto `Cache-Control: no-store`.
     ## Fechas
     Las fechas de respuesta van en RFC 3339 (UTC). Los filtros `desde`/`hasta` usan
     `AAAA-MM-DD` en hora de Celaya (`America/Mexico_City`) y ambos días se incluyen.
@@ -269,6 +281,7 @@ paths:
               example:
                 success: false
                 error: { code: CONFLICTO, message: El correo ya está registrado }
+        '413': { $ref: '#/components/responses/CuerpoDemasiadoGrande' }
         '500': { $ref: '#/components/responses/ErrorInterno' }
   /api/v1/auth/login:
     post:
@@ -309,6 +322,23 @@ paths:
               example:
                 success: false
                 error: { code: NO_AUTORIZADO, message: Correo o contraseña incorrectos }
+        '413': { $ref: '#/components/responses/CuerpoDemasiadoGrande' }
+        '429':
+          description: |
+            Demasiados intentos fallidos desde esta IP (`LOGIN_MAX_INTENTOS` en `LOGIN_VENTANA`).
+            Mientras dure el bloqueo se rechaza todo login de esa IP, aun con la contraseña correcta.
+          headers:
+            Retry-After:
+              description: Segundos que faltan para volver a intentar.
+              schema: { type: integer, minimum: 1, example: 287 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error:
+                  code: DEMASIADAS_SOLICITUDES
+                  message: Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar
         '500': { $ref: '#/components/responses/ErrorInterno' }
   /api/v1/auth/perfil:
     get:
@@ -1014,7 +1044,7 @@ components:
   headers:
     XRequestID:
       description: Identificador de la petición para buscarla en los logs.
-      schema: { type: string, maxLength: 64, example: 9f2c4e1a7b3d5c60 }
+      schema: { type: string, maxLength: 64, pattern: '^[A-Za-z0-9._-]{1,64}$', example: 9f2c4e1a7b3d5c60 }
 
   parameters:
     IDReporte:
@@ -1049,6 +1079,14 @@ components:
       schema: { type: string, format: date, example: '2026-11-30' }
 
   responses:
+    CuerpoDemasiadoGrande:
+      description: El cuerpo JSON supera 64 KiB (HU 09.1).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: CUERPO_DEMASIADO_GRANDE, message: El cuerpo de la solicitud es demasiado grande }
     SolicitudInvalida:
       description: |
         `SOLICITUD_INVALIDA` (JSON mal formado, id no numérico, multipart ausente) o
@@ -1189,6 +1227,8 @@ components:
         - ARCHIVO_DEMASIADO_GRANDE
         - FORMATO_NO_PERMITIDO
         - IMAGEN_INVALIDA
+        - CUERPO_DEMASIADO_GRANDE
+        - DEMASIADAS_SOLICITUDES
     ErrorCampo:
       type: object
       required: [campo, regla]

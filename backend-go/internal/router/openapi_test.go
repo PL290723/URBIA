@@ -35,7 +35,7 @@ func routerDePrueba(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	tokens := auth.NewTokenManager("secreto-solo-para-pruebas-de-openapi", time.Hour)
-	return New(log, tokens, Handlers{})
+	return New(log, tokens, Handlers{}, Seguridad{})
 }
 
 func cargarEspecificacion(t *testing.T) map[string]any {
@@ -303,6 +303,7 @@ func TestOpenAPI_CodigosDeError(t *testing.T) {
 		response.CodeForbidden, response.CodeNotFound, response.CodeMethodNotAllowed,
 		response.CodeConflict, response.CodeInternal, response.CodeServiceUnavailable,
 		response.CodePayloadTooLarge, response.CodeUnsupportedMedia, response.CodeInvalidImage,
+		response.CodeBodyTooLarge, response.CodeTooManyRequests,
 	}
 	slices.Sort(documentados)
 	slices.Sort(implementados)
