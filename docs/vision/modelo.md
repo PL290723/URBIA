@@ -184,7 +184,7 @@ El modelo **nunca rechaza ni descarta un reporte**: solo sugiere. Una foto de un
 | mAP50 / mAP50-95 (`test`, 344 fotos) | **0.791 / 0.485** |
 | Umbral de confianza | 0.25 (máximo F1 macro 0.750) |
 | Exactitud de la sugerencia por foto (`test`) | **96.5 %** (332 de 344) |
-| Pesos | `models/urbia-yolo26s-v1.0.0.pt` · SHA-256 `{0: 'bache', 1: 'basura'} 0.25 {'epochs_configuradas': 100, 'epochs_entrenadas': 64, 'epoch_mejor': 44, 'val_mAP50_95_mejor': 0.537, 'batch': 8, 'seed': 42, 'device': '0', 'fecha': '2026-11-15T14:29:13.231040-06:00'}` |
+| Pesos | `models/urbia-yolo26s-v1.0.0.pt` \ SHA-256 `9102fa7191fa950537aaa4f4b12df1cef09aecc6a419b03927ab50174e335ef7` |
 
 **Curvas de entrenamiento.** Las pérdidas de entrenamiento bajan de forma continua; las de validación se aplanan hacia la época 40–45 y después suben ligeramente (inicio de sobreajuste). El early stopping detuvo el entrenamiento en la época 64 y conservó la época 44 como `best.pt`.
 
