@@ -123,6 +123,8 @@ func run() error {
 	cercanosSvc := services.NewCercanosService(cercanosRepo, parametrosCercania, log)
 	prioridadRepo := repositories.NewPrioridadRepository(pool)
 	prioridadSvc := services.NewPrioridadService(prioridadRepo, cfg.Prioridad, parametrosCercania, log)
+	estadoRepo := repositories.NewEstadoRepository(pool)
+	estadoSvc := services.NewEstadoService(estadoRepo, log)
 
 	r := router.New(log, tokens, router.Handlers{
 		Health:        handlers.NewHealthHandler(healthSvc),
@@ -133,7 +135,8 @@ func run() error {
 		Clasificacion: handlers.NewClasificacionHandler(clasificacionSvc),
 		Consulta:      handlers.NewConsultaReporteHandler(consultaSvc),
 		Cercanos:      handlers.NewCercanosHandler(cercanosSvc),
-		Prioridad:     handlers.NewPrioridadHandler(prioridadSvc), // ← nuevo
+		Prioridad:     handlers.NewPrioridadHandler(prioridadSvc),
+		Estado:        handlers.NewEstadoHandler(estadoSvc),
 	})
 
 	srv := &http.Server{
