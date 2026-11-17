@@ -207,12 +207,20 @@ func (r *ConsultaReporteRepository) ultimaDeteccion(ctx context.Context, fila *m
 	return nil
 }
 
+// Historial devuelve la secuencia de estados del reporte en orden cronológico,
+// con el actor de cada evento (HU 07.3). El service decide cuánto del actor se muestra.
+func (r *ConsultaReporteRepository) Historial(ctx context.Context, id int64) ([]models.HistorialEstado, error) {
+	return r.historial(ctx, id)
+}
+
 func (r *ConsultaReporteRepository) historial(ctx context.Context, id int64) ([]models.HistorialEstado, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT estado_anterior::text, estado_nuevo::text, fecha
-		FROM historial_estado
-		WHERE id_reporte = $1
-		ORDER BY fecha, id_historial_estado`, id)
+		SELECT h.id_historial_estado, h.estado_anterior::text, h.estado_nuevo::text, h.fecha,
+		       u.id_usuario, u.nombre, u.rol::text
+		FROM historial_estado h
+		JOIN usuario u ON u.id_usuario = h.id_usuario
+		WHERE h.id_reporte = $1
+		ORDER BY h.fecha, h.id_historial_estado`, id)
 	if err != nil {
 		return nil, fmt.Errorf("leer historial: %w", err)
 	}
@@ -221,9 +229,10 @@ func (r *ConsultaReporteRepository) historial(ctx context.Context, id int64) ([]
 	historial := []models.HistorialEstado{}
 	for rows.Next() {
 		var anterior *string
-		var nuevo string
+		var nuevo, nombre, rol string
+		var idActor int64
 		var h models.HistorialEstado
-		if err := rows.Scan(&anterior, &nuevo, &h.Fecha); err != nil {
+		if err := rows.Scan(&h.ID, &anterior, &nuevo, &h.Fecha, &idActor, &nombre, &rol); err != nil {
 			return nil, fmt.Errorf("leer historial: %w", err)
 		}
 		if anterior != nil {
@@ -231,6 +240,8 @@ func (r *ConsultaReporteRepository) historial(ctx context.Context, id int64) ([]
 			h.EstadoAnterior = &e
 		}
 		h.EstadoNuevo = dominio.Estado(nuevo)
+		h.Tipo = dominio.TipoDeEvento(h.EstadoAnterior)
+		h.Actor = &models.ActorHistorial{IDUsuario: &idActor, Nombre: &nombre, Rol: dominio.Rol(rol)}
 		historial = append(historial, h)
 	}
 	return historial, rows.Err()

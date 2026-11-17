@@ -11,4 +11,6 @@ import (
 func registerConsultaReporteRoutes(rg *gin.RouterGroup, h *handlers.ConsultaReporteHandler, requireAuth gin.HandlerFunc) {
 	rg.GET("/reportes", requireAuth, h.Listar)
 	rg.GET("/reportes/:id", requireAuth, h.Detalle)
+	// Solo GET: el historial no se modifica desde la API (PUT/PATCH/DELETE -> 405).
+	rg.GET("/reportes/:id/historial", requireAuth, h.Historial)
 }
