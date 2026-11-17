@@ -23,6 +23,7 @@ type Handlers struct {
 	Cercanos      *handlers.CercanosHandler
 	Prioridad     *handlers.PrioridadHandler
 	Estado        *handlers.EstadoHandler
+	Estadisticas  *handlers.EstadisticasHandler
 }
 
 func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
@@ -58,5 +59,6 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	registerCercanosRoutes(v1, h.Cercanos, requireAuth)
 	registerPrioridadRoutes(v1, h.Prioridad, requireAuth)
 	registerEstadoRoutes(v1, h.Estado, requireAuth)
+	registerEstadisticasRoutes(v1, h.Estadisticas, requireAuth)
 	return r
 }
