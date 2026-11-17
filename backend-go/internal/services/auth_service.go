@@ -16,13 +16,22 @@ import (
 // Mismo mensaje para correo inexistente y contraseña incorrecta: no revela si la cuenta existe.
 const msgCredenciales = "Correo o contraseña incorrectos"
 
+// RepositorioUsuarios es lo que AuthService necesita de la base de datos.
+// *repositories.UsuarioRepository lo cumple; en las pruebas unitarias (HU 09.2)
+// se usa un doble en memoria para simular correos duplicados o la BD caída.
+type RepositorioUsuarios interface {
+	Crear(ctx context.Context, u *models.Usuario) error
+	BuscarPorCorreo(ctx context.Context, correo string) (*models.Usuario, error)
+	BuscarPorID(ctx context.Context, id int64) (*models.Usuario, error)
+}
+
 type AuthService struct {
-	usuarios  *repositories.UsuarioRepository
+	usuarios  RepositorioUsuarios
 	tokens    *auth.TokenManager
 	dummyHash string
 }
 
-func NewAuthService(usuarios *repositories.UsuarioRepository, tokens *auth.TokenManager) (*AuthService, error) {
+func NewAuthService(usuarios RepositorioUsuarios, tokens *auth.TokenManager) (*AuthService, error) {
 	dummy, err := auth.HashContrasena("contrasena-ficticia-para-tiempo-constante")
 	if err != nil {
 		return nil, err
