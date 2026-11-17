@@ -56,9 +56,29 @@ type SugerenciaVista struct {
 }
 
 type HistorialEstado struct {
-	EstadoAnterior *dominio.Estado `json:"estado_anterior"`
-	EstadoNuevo    dominio.Estado  `json:"estado_nuevo"`
-	Fecha          time.Time       `json:"fecha"`
+	ID             int64              `json:"id_historial_estado"`
+	Tipo           dominio.TipoEvento `json:"tipo"` // creacion | cambio_estado
+	EstadoAnterior *dominio.Estado    `json:"estado_anterior"`
+	EstadoNuevo    dominio.Estado     `json:"estado_nuevo"`
+	Fecha          time.Time          `json:"fecha"`
+	Actor          *ActorHistorial    `json:"actor,omitempty"` // recortado según la vista (HU 07.3)
+}
+
+// ActorHistorial es quién hizo el cambio. El administrador ve id y nombre;
+// el autor del reporte solo ve el rol.
+type ActorHistorial struct {
+	IDUsuario *int64      `json:"id_usuario,omitempty"`
+	Nombre    *string     `json:"nombre,omitempty"`
+	Rol       dominio.Rol `json:"rol"`
+}
+
+// HistorialReporte es la respuesta de GET /api/v1/reportes/:id/historial (HU 07.3).
+type HistorialReporte struct {
+	IDReporte    int64             `json:"id_reporte"`
+	EstadoActual dominio.Estado    `json:"estado_actual"`
+	Total        int               `json:"total"`
+	SoloLectura  bool              `json:"solo_lectura"` // el historial no se modifica desde la API
+	Eventos      []HistorialEstado `json:"eventos"`      // orden cronológico (fecha, id)
 }
 
 type AutorReporte struct {
