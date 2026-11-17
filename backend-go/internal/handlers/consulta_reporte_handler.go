@@ -70,3 +70,23 @@ func (h *ConsultaReporteHandler) Detalle(c *gin.Context) {
 	}
 	response.OK(c, detalle)
 }
+
+// Historial: GET /api/v1/reportes/:id/historial
+// Secuencia de estados en orden cronológico; solo lectura (HU 07.3).
+func (h *ConsultaReporteHandler) Historial(c *gin.Context) {
+	sesion, ok := sesionRequerida(c)
+	if !ok {
+		return
+	}
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	historial, err := h.svc.Historial(c.Request.Context(), sesion, id)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.OK(c, historial)
+}

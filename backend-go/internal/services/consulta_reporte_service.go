@@ -78,6 +78,31 @@ func (s *ConsultaReporteService) Detalle(ctx context.Context, sesion auth.Sesion
 	return detalleDe(fila, vista, sesion.UsuarioID), nil
 }
 
+// Historial devuelve la secuencia de estados de un reporte (HU 07.3).
+// Solo lectura: el historial no se modifica desde la API.
+// Administrador: todo, con el actor completo. Autor: su reporte, actor solo por rol.
+// Otro ciudadano: 403.
+func (s *ConsultaReporteService) Historial(ctx context.Context, sesion auth.Sesion, id int64) (*models.HistorialReporte, error) {
+	fila, err := s.repo.Detalle(ctx, id, false)
+	if errors.Is(err, repositories.ErrNoEncontrado) {
+		return nil, response.NotFound(msgReporteNoEncontrado)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	vista := dominio.VistaDeReporte(sesion.Rol, sesion.UsuarioID, fila.IDUsuario)
+	if !vista.VePrivado() {
+		return nil, response.Forbidden("Solo el autor del reporte o un administrador pueden ver su historial")
+	}
+
+	eventos, err := s.repo.Historial(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return historialReporteDe(fila, eventos, vista), nil
+}
+
 // ---------------------------------------------------------------------
 // Proyección por vista: funciones puras, probadas sin base de datos.
 // ---------------------------------------------------------------------
@@ -154,7 +179,7 @@ func detalleDe(f *models.FilaReporte, v dominio.Vista, idUsuario int64) *models.
 		}
 		d.Sugerencia = sug
 	}
-	d.Historial = f.Historial
+	d.Historial = historialPara(f.Historial, v)
 
 	if v.VeAdministrativo() {
 		d.Admin = adminDe(f)
@@ -172,4 +197,37 @@ func detalleDe(f *models.FilaReporte, v dominio.Vista, idUsuario int64) *models.
 		}
 	}
 	return d
+}
+
+// historialReporteDe arma la respuesta de GET /reportes/:id/historial.
+func historialReporteDe(f *models.FilaReporte, eventos []models.HistorialEstado, v dominio.Vista) *models.HistorialReporte {
+	h := historialPara(eventos, v)
+	return &models.HistorialReporte{
+		IDReporte:    f.ID,
+		EstadoActual: f.Estado,
+		Total:        len(h),
+		SoloLectura:  true,
+		Eventos:      h,
+	}
+}
+
+// historialPara recorta el actor de cada evento según la vista (HU 07.3).
+// Devuelve una copia: nunca modifica lo que leyó el repositorio.
+func historialPara(eventos []models.HistorialEstado, v dominio.Vista) []models.HistorialEstado {
+	if eventos == nil {
+		return nil
+	}
+	out := make([]models.HistorialEstado, len(eventos))
+	for i, e := range eventos {
+		out[i] = e
+		switch {
+		case e.Actor == nil || v.VeActorCompleto():
+			// el administrador ve id y nombre
+		case v.VePrivado():
+			out[i].Actor = &models.ActorHistorial{Rol: e.Actor.Rol} // el autor solo ve el rol
+		default:
+			out[i].Actor = nil
+		}
+	}
+	return out
 }
