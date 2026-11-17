@@ -14,12 +14,20 @@ import (
 )
 
 // EstadoService permite al administrador avanzar el ciclo de vida de un reporte (HU 07.2).
+// RepositorioEstados es lo que EstadoService necesita de la base de datos.
+// *repositories.EstadoRepository lo cumple; las pruebas unitarias (HU 09.2) usan un doble.
+type RepositorioEstados interface {
+	Cambiar(ctx context.Context, idReporte, idUsuario int64, destino dominio.Estado,
+		validar func(actual dominio.Estado) error) (*models.CambioEstado, error)
+}
+
+// EstadoService permite al administrador avanzar el ciclo de vida de un reporte (HU 07.2).
 type EstadoService struct {
-	repo *repositories.EstadoRepository
+	repo RepositorioEstados
 	log  *slog.Logger
 }
 
-func NewEstadoService(repo *repositories.EstadoRepository, log *slog.Logger) *EstadoService {
+func NewEstadoService(repo RepositorioEstados, log *slog.Logger) *EstadoService {
 	return &EstadoService{repo: repo, log: log}
 }
 
