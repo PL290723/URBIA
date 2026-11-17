@@ -60,5 +60,6 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	registerPrioridadRoutes(v1, h.Prioridad, requireAuth)
 	registerEstadoRoutes(v1, h.Estado, requireAuth)
 	registerEstadisticasRoutes(v1, h.Estadisticas, requireAuth)
+	registerDocsRoutes(r)
 	return r
 }
