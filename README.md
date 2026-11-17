@@ -31,3 +31,10 @@ Para ejecutar este proyecto en tu entorno de desarrollo, asegúrate de contar co
 * **PostgreSQL** (v15+) con la extensión **PostGIS** habilitada.
 * **Make** (para automatizar la generación de código gRPC y migraciones).
 * **Protocol Buffers Compiler (`protoc`)** (para generar los contratos gRPC).
+
+
+## Seguridad
+
+Antes de exponer la API en la red local revisa [docs/backend/seguridad.md](docs/backend/seguridad.md):
+inventario de rutas protegidas, límites de archivos y cuerpos, CORS, logs sin datos
+sensibles y cómo preparar la red de la feria.

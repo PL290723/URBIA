@@ -40,6 +40,7 @@ type Dependencias struct {
 	Prioridad dominio.ConfigPrioridad
 	Version   string
 	Inicio    time.Time
+	Seguridad router.Seguridad // CORS y límite de login (HU 09.1); el valor cero es seguro
 }
 
 // NuevoRouter crea repositories, services y handlers y devuelve el router listo.
@@ -94,5 +95,5 @@ func NuevoRouter(d Dependencias) (*gin.Engine, error) {
 		Prioridad:     handlers.NewPrioridadHandler(prioridadSvc),
 		Estado:        handlers.NewEstadoHandler(estadoSvc),
 		Estadisticas:  handlers.NewEstadisticasHandler(estadisticasSvc),
-	}), nil
+	}, d.Seguridad), nil
 }

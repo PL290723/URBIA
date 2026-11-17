@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PL290723/URBIA/backend-go/internal/router"
 	"github.com/gin-gonic/gin"
 
 	"github.com/PL290723/URBIA/backend-go/internal/app"
@@ -100,17 +101,28 @@ func run() error {
 			Limite:      dominio.LimiteCercanosDefecto,
 		},
 		Prioridad: cfg.Prioridad,
-		Version:   version,
-		Inicio:    inicio,
+		Seguridad: router.Seguridad{
+			OrigenesCORS:     cfg.CORSAllowedOrigins,
+			LoginMaxIntentos: cfg.LoginMaxIntentos,
+			LoginVentana:     cfg.LoginVentana,
+		},
+		Version: version,
+		Inicio:  inicio,
 	})
 	if err != nil {
 		return err
 	}
 
+	// Tiempos máximos (HU 09.1): un cliente lento o malicioso no puede tener
+	// conexiones abiertas para siempre. 2 min alcanzan para subir 10 MB por Wi-Fi.
 	srv := &http.Server{
 		Addr:              cfg.Addr(),
 		Handler:           r,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    64 << 10,
 	}
 
 	errCh := make(chan error, 1)

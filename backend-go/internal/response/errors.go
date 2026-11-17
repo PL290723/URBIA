@@ -42,6 +42,11 @@ func PayloadTooLarge(msg string) *AppError {
 	return &AppError{Status: http.StatusRequestEntityTooLarge, Code: CodePayloadTooLarge, Message: msg}
 }
 
+// BodyTooLarge es el 413 de un cuerpo JSON que excede el límite (HU 09.1).
+func BodyTooLarge(msg string) *AppError {
+	return &AppError{Status: http.StatusRequestEntityTooLarge, Code: CodeBodyTooLarge, Message: msg}
+}
+
 // HandleError responde con el AppError si lo es; si no, 500 sin filtrar detalles internos.
 func HandleError(c *gin.Context, err error) {
 	var appErr *AppError

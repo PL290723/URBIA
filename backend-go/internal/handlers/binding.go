@@ -30,6 +30,12 @@ func bindJSON(c *gin.Context, dst any) bool {
 	if err == nil {
 		return true
 	}
+	// El middleware LimiteCuerpo corta los JSON de más de 64 KiB (HU 09.1).
+	var mbe *http.MaxBytesError
+	if errors.As(err, &mbe) {
+		response.HandleError(c, response.BodyTooLarge("El cuerpo de la solicitud es demasiado grande"))
+		return false
+	}
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		detalles := make([]gin.H, 0, len(ve))
