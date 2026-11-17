@@ -34,7 +34,14 @@ type Config struct {
 	DuplicadosRadioM      int
 	DuplicadosVentanaDias int
 	Prioridad             dominio.ConfigPrioridad
+	// Seguridad (HU 09.1)
+	CORSAllowedOrigins []string // vacío = ningún navegador de otro origen puede leer la API
+	LoginMaxIntentos   int
+	LoginVentana       time.Duration
 }
+
+// marcadorEjemplo es el texto de los valores de .env.example que hay que reemplazar.
+const marcadorEjemplo = "CAMBIAR"
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
 // Devuelve todos los errores juntos para corregirlos de una vez.
@@ -79,6 +86,11 @@ func Load() (*Config, error) {
 	if len(cfg.JWTSecret) < 32 {
 		errs = append(errs, errors.New("JWT_SECRET es obligatoria y debe tener al menos 32 caracteres"))
 	}
+	// El valor de .env.example mide más de 32 caracteres y es público (está en GitHub):
+	// con él cualquiera podría firmar un token de administrador.
+	if strings.Contains(strings.ToUpper(cfg.JWTSecret), marcadorEjemplo) {
+		errs = append(errs, errors.New("JWT_SECRET sigue con el valor de ejemplo de .env.example: genera uno propio"))
+	}
 
 	ttl, err := time.ParseDuration(getEnv("JWT_TTL", "2h"))
 	if err != nil || ttl <= 0 {
@@ -106,6 +118,9 @@ func Load() (*Config, error) {
 	cfg.DuplicadosRadioM = enteroEnRango("DUPLICADOS_RADIO_M", 50, 1, 1000, &errs)
 	cfg.DuplicadosVentanaDias = enteroEnRango("DUPLICADOS_VENTANA_DIAS", 30, 1, 365, &errs)
 	cfg.Prioridad = cargarPrioridad(&errs)
+	cfg.CORSAllowedOrigins = parseOrigenes(os.Getenv("CORS_ALLOWED_ORIGINS"), &errs)
+	cfg.LoginMaxIntentos = enteroEnRango("LOGIN_MAX_INTENTOS", 10, 3, 100, &errs)
+	cfg.LoginVentana = duracionPositiva("LOGIN_VENTANA", "5m", &errs)
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -155,6 +170,30 @@ func decimalEnRango(key string, def, minimo, maximo float64, errs *[]error) floa
 	return n
 }
 
+// parseOrigenes lee CORS_ALLOWED_ORIGINS: orígenes exactos separados por coma
+// (esquema://host[:puerto], sin ruta ni "/" final). "*" no se acepta.
+func parseOrigenes(valor string, errs *[]error) []string {
+	var origenes []string
+	for _, o := range strings.Split(valor, ",") {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue
+		}
+		if o == "*" {
+			*errs = append(*errs, errors.New(`CORS_ALLOWED_ORIGINS no admite "*": lista los orígenes exactos del frontend`))
+			continue
+		}
+		u, err := url.Parse(o)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+			u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			*errs = append(*errs, fmt.Errorf("CORS_ALLOWED_ORIGINS: origen inválido %q (ejemplo: http://192.168.1.50:5173, sin / final)", o))
+			continue
+		}
+		origenes = append(origenes, strings.ToLower(o))
+	}
+	return origenes
+}
+
 // cargarPrioridad lee la fórmula de prioridad (HU 07.1); los pesos deben sumar 1.
 func cargarPrioridad(errs *[]error) dominio.ConfigPrioridad {
 	p := dominio.ConfigPrioridad{
@@ -189,6 +228,10 @@ func (c *Config) ResumenSeguro() []any {
 	if c.InferenceGRPCAddr != "" {
 		inferenciaGRPC = c.InferenceGRPCAddr
 	}
+	cors := "ninguno (solo clientes sin navegador)"
+	if len(c.CORSAllowedOrigins) > 0 {
+		cors = strings.Join(c.CORSAllowedOrigins, ",")
+	}
 	return []any{
 		"entorno", c.AppEnv,
 		"puerto", c.Port,
@@ -206,5 +249,8 @@ func (c *Config) ResumenSeguro() []any {
 		"prioridad_formula", dominio.VersionFormula,
 		"prioridad_pesos", fmt.Sprintf("%.2f/%.2f/%.2f/%.2f", c.Prioridad.Pesos.Gravedad,
 			c.Prioridad.Pesos.Afectacion, c.Prioridad.Pesos.Recurrencia, c.Prioridad.Pesos.Antiguedad),
+		"cors_origenes", cors,
+		"login_max_intentos", c.LoginMaxIntentos,
+		"login_ventana", c.LoginVentana.String(),
 	}
 }
