@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PL290723/URBIA/backend-go/internal/dominio"
 	"github.com/joho/godotenv"
 )
 
@@ -32,6 +33,7 @@ type Config struct {
 	// Búsqueda de reportes cercanos/duplicados (HU 06.5).
 	DuplicadosRadioM      int
 	DuplicadosVentanaDias int
+	Prioridad             dominio.ConfigPrioridad
 }
 
 // Load lee las variables de entorno (y .env si existe) y las valida.
@@ -103,6 +105,7 @@ func Load() (*Config, error) {
 	cfg.StorageDir = strings.TrimSpace(getEnv("STORAGE_DIR", "./storage"))
 	cfg.DuplicadosRadioM = enteroEnRango("DUPLICADOS_RADIO_M", 50, 1, 1000, &errs)
 	cfg.DuplicadosVentanaDias = enteroEnRango("DUPLICADOS_VENTANA_DIAS", 30, 1, 365, &errs)
+	cfg.Prioridad = cargarPrioridad(&errs)
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -144,6 +147,33 @@ func enteroEnRango(key string, def, minimo, maximo int, errs *[]error) int {
 	return n
 }
 
+func decimalEnRango(key string, def, minimo, maximo float64, errs *[]error) float64 {
+	n, err := strconv.ParseFloat(getEnv(key, strconv.FormatFloat(def, 'f', -1, 64)), 64)
+	if err != nil || n < minimo || n > maximo {
+		*errs = append(*errs, fmt.Errorf("%s debe ser un número entre %g y %g", key, minimo, maximo))
+	}
+	return n
+}
+
+// cargarPrioridad lee la fórmula de prioridad (HU 07.1); los pesos deben sumar 1.
+func cargarPrioridad(errs *[]error) dominio.ConfigPrioridad {
+	p := dominio.ConfigPrioridad{
+		Pesos: dominio.PesosPrioridad{
+			Gravedad:    decimalEnRango("PRIORIDAD_PESO_GRAVEDAD", dominio.PesoGravedadDefecto, 0, 1, errs),
+			Afectacion:  decimalEnRango("PRIORIDAD_PESO_AFECTACION", dominio.PesoAfectacionDefecto, 0, 1, errs),
+			Recurrencia: decimalEnRango("PRIORIDAD_PESO_RECURRENCIA", dominio.PesoRecurrenciaDefecto, 0, 1, errs),
+			Antiguedad:  decimalEnRango("PRIORIDAD_PESO_ANTIGUEDAD", dominio.PesoAntiguedadDefecto, 0, 1, errs),
+		},
+		AntiguedadMaxDias: enteroEnRango("PRIORIDAD_ANTIGUEDAD_MAX_DIAS", dominio.AntiguedadMaxDiasDefecto, 1, 365, errs),
+		RecurrenciaMaxima: enteroEnRango("PRIORIDAD_RECURRENCIA_MAX", dominio.RecurrenciaMaximaDefecto, 1, 50, errs),
+		CoberturaMinima:   decimalEnRango("PRIORIDAD_COBERTURA_MIN", dominio.CoberturaMinimaDefecto, 0.1, 1, errs),
+	}
+	if err := p.Pesos.Validar(); err != nil {
+		*errs = append(*errs, fmt.Errorf("PRIORIDAD_PESO_*: %w", err))
+	}
+	return p
+}
+
 // ResumenSeguro devuelve la configuración apta para logs: sin contraseñas ni secretos.
 func (c *Config) ResumenSeguro() []any {
 	db := "(formato clave=valor, oculto)"
@@ -173,5 +203,8 @@ func (c *Config) ResumenSeguro() []any {
 		"almacenamiento", c.StorageDir,
 		"duplicados_radio_m", c.DuplicadosRadioM,
 		"duplicados_ventana_dias", c.DuplicadosVentanaDias,
+		"prioridad_formula", dominio.VersionFormula,
+		"prioridad_pesos", fmt.Sprintf("%.2f/%.2f/%.2f/%.2f", c.Prioridad.Pesos.Gravedad,
+			c.Prioridad.Pesos.Afectacion, c.Prioridad.Pesos.Recurrencia, c.Prioridad.Pesos.Antiguedad),
 	}
 }
