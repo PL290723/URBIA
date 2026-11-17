@@ -115,11 +115,14 @@ func run() error {
 	consultaRepo := repositories.NewConsultaReporteRepository(pool)
 	consultaSvc := services.NewConsultaReporteService(consultaRepo, log)
 	cercanosRepo := repositories.NewCercanosRepository(pool)
-	cercanosSvc := services.NewCercanosService(cercanosRepo, dominio.ParametrosCercania{
+	parametrosCercania := dominio.ParametrosCercania{
 		RadioM:      cfg.DuplicadosRadioM,
 		VentanaDias: cfg.DuplicadosVentanaDias,
 		Limite:      dominio.LimiteCercanosDefecto,
-	}, log)
+	}
+	cercanosSvc := services.NewCercanosService(cercanosRepo, parametrosCercania, log)
+	prioridadRepo := repositories.NewPrioridadRepository(pool)
+	prioridadSvc := services.NewPrioridadService(prioridadRepo, cfg.Prioridad, parametrosCercania, log)
 
 	r := router.New(log, tokens, router.Handlers{
 		Health:        handlers.NewHealthHandler(healthSvc),
@@ -130,6 +133,7 @@ func run() error {
 		Clasificacion: handlers.NewClasificacionHandler(clasificacionSvc),
 		Consulta:      handlers.NewConsultaReporteHandler(consultaSvc),
 		Cercanos:      handlers.NewCercanosHandler(cercanosSvc),
+		Prioridad:     handlers.NewPrioridadHandler(prioridadSvc), // ← nuevo
 	})
 
 	srv := &http.Server{

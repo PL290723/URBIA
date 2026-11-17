@@ -21,6 +21,7 @@ type Handlers struct {
 	Clasificacion *handlers.ClasificacionHandler
 	Consulta      *handlers.ConsultaReporteHandler
 	Cercanos      *handlers.CercanosHandler
+	Prioridad     *handlers.PrioridadHandler
 }
 
 func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
@@ -54,6 +55,7 @@ func New(log *slog.Logger, tokens *auth.TokenManager, h Handlers) *gin.Engine {
 	registerClasificacionRoutes(v1, h.Clasificacion, requireAuth)
 	registerConsultaReporteRoutes(v1, h.Consulta, requireAuth)
 	registerCercanosRoutes(v1, h.Cercanos, requireAuth)
+	registerPrioridadRoutes(v1, h.Prioridad, requireAuth)
 	//   PATCH /reportes/:id/estado → requireAuth + middleware.RequirePermiso(dominio.Rol.PuedeCambiarEstado)
 
 	return r

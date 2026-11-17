@@ -99,3 +99,24 @@ func TestResumenSeguro_NoExponeSecretos(t *testing.T) {
 		t.Error("el resumen expone la contraseña en formato clave=valor")
 	}
 }
+
+func TestLoad_PrioridadPorDefecto(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
+	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+	if cfg.Prioridad.Pesos.Gravedad != 0.40 || cfg.Prioridad.CoberturaMinima != 0.50 {
+		t.Fatalf("pesos por defecto inesperados: %+v", cfg.Prioridad)
+	}
+}
+
+func TestLoad_PrioridadPesosNoSumanUno(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/urbia")
+	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
+	t.Setenv("PRIORIDAD_PESO_GRAVEDAD", "0.60") // 0.60 + 0.30 + 0.20 + 0.10 = 1.20
+	if _, err := Load(); err == nil {
+		t.Fatal("se esperaba error porque los pesos no suman 1")
+	}
+}
