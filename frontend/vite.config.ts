@@ -26,7 +26,11 @@ export default defineConfig(({ mode }) => {
   const servidor: ServerOptions = {
     host: true, // escucha en la red local para que entren los celulares
     port: 5173,
-    strictPort: true,
+    strictPort: true,    // Dominios públicos que pueden abrir la app (túnel de Cloudflare y, si hay, dominio propio)
+    allowedHosts: [
+      '.trycloudflare.com',
+      ...(env.URBIA_HOSTS_PERMITIDOS ? env.URBIA_HOSTS_PERMITIDOS.split(',').map((h) => h.trim()) : []),
+    ],
     https,
     proxy: {
       '/api': { target: destinoApi, changeOrigin: true },
