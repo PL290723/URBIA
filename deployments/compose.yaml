@@ -91,7 +91,8 @@ services:
     # Sin puertos publicados: gRPC y /health solo dentro de la red interna
     networks: [interna]
     depends_on:
-      # La API monta el volumen primero, así queda con dueño 10001 (Go) y no root
+      # Arranca después de la API. El dueño del volumen (10001) lo fijan ambas imágenes,
+      # así que no depende de qué contenedor lo monte primero.
       api:
         condition: service_started
     restart: unless-stopped

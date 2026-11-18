@@ -58,7 +58,8 @@ RUN apt-get update \
  && groupadd --gid 10001 urbia \
  && useradd --uid 10002 --gid urbia --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin vision \
- && mkdir -p /app/storage
+  && mkdir -p /app/storage \
+ && chown 10001:10001 /app/storage
 
 COPY --from=dependencias /opt/venv /opt/venv
 
