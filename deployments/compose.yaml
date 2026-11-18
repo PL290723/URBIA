@@ -63,10 +63,17 @@ services:
       INFERENCE_URL: http://inferencia:8000
       INFERENCE_GRPC_ADDR: inferencia:50051
       STORAGE_DIR: /app/storage
+      # Origen exacto del frontend de la demo (incluye la IP del equipo servidor en la feria)
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      # Con Docker Desktop todos los dispositivos llegan con la IP del proxy de Docker:
+      # el límite de login es compartido, por eso se ajusta desde .env (ver deployments/feria.md)
+      LOGIN_MAX_INTENTOS: ${LOGIN_MAX_INTENTOS:-10}
+      LOGIN_VENTANA: ${LOGIN_VENTANA:-5m}
     volumes:
       - storage:/app/storage
     ports:
+      # En todas las interfaces de Windows: la red local llega por la IP del equipo.
+      # Quién puede entrar lo decide el firewall (solo perfil Privado, ver deployments/feria.md)
       - "${API_PUERTO:-8080}:8080"
     networks: [interna, publica]
     depends_on:

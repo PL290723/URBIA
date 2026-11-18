@@ -136,13 +136,18 @@ La API está pensada para una **red local controlada**, no para Internet:
    tenga el equipo. No usar la Wi-Fi abierta del evento.
 2. No abrir puertos en el router (sin *port forwarding*, sin DMZ, sin UPnP).
 3. En el firewall de Windows, permitir el puerto de la API **solo en el perfil Privado**.
-   PostgreSQL (5432) y el gRPC de inferencia (50051) **no** se exponen: solo `localhost`.
+   PostgreSQL del contenedor solo escucha en `127.0.0.1:5433` y la inferencia (gRPC 50051,
+   salud 8000) no publica puertos. Procedimiento completo: [deployments/feria.md](../../deployments/feria.md).
 4. `CORS_ALLOWED_ORIGINS` con la IP local exacta del frontend; nada de `*`.
 5. `APP_ENV=production` y `GIN_MODE=release` el día de la demostración (logs JSON, sin modo debug).
 6. Cuentas de demostración con datos ficticios; un `JWT_SECRET` nuevo para la feria.
 7. Al terminar, apagar la API y cambiar la contraseña de la red.
 
 HTTP sin TLS es aceptable **solo** dentro de esa red cerrada; el token viaja en claro.
+
+Con Docker Desktop todos los dispositivos llegan a la API con la IP del proxy de Docker,
+así que el límite de login (hallazgo 4) es compartido: en la feria se sube con
+`LOGIN_MAX_INTENTOS` (ver `deployments/feria.md`).
 
 ## Limitaciones conocidas
 

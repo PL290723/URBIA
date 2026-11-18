@@ -1,0 +1,22 @@
+# Perfil GPU opcional (HU 10.4). compose.yaml usa CPU y es la configuración de la feria.
+#
+# Usar GPU:    docker compose -f compose.yaml -f compose.gpu.yaml up -d --build
+# Volver a CPU (si CUDA falla o no hay GPU):  docker compose up -d
+#
+# Requiere Docker Desktop con WSL 2 y el driver NVIDIA de Windows. Las dos imágenes
+# conviven (tags 0.1.0 y 0.1.0-gpu), así que cambiar no reconstruye nada.
+services:
+  inferencia:
+    build:
+      args:
+        TORCH_VARIANTE: cu121
+    image: urbia-inferencia:${URBIA_VERSION:-0.1.0}-gpu
+    environment:
+      URBIA_DEVICE: "0"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
