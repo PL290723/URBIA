@@ -55,3 +55,7 @@ Host `localhost`, puerto `5433`, base `urbia`, usuario `urbia_owner` o `urbia_ap
 ## Secretos
 Ninguna contraseña está en `compose.yaml` ni en las imágenes: todo sale de
 `deployments/.env`, que está en `.gitignore`.
+
+## Feria y red local
+Cómo dar acceso a celulares de la misma red, firewall, CORS, límite de login y la
+alternativa CPU/GPU: [feria.md](feria.md).
