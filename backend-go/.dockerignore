@@ -1,0 +1,19 @@
+# Secretos: nunca dentro de la imagen
+.env
+.env.*
+
+# Datos locales y binarios
+storage/
+uploads/
+bin/
+*.exe
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+
+# No hacen falta dentro del contexto
+Dockerfile
+.dockerignore
