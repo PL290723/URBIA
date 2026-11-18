@@ -59,3 +59,12 @@ Ninguna contraseña está en `compose.yaml` ni en las imágenes: todo sale de
 ## Feria y red local
 Cómo dar acceso a celulares de la misma red, firewall, CORS, límite de login y la
 alternativa CPU/GPU: [feria.md](feria.md).
+
+## Scripts de operación
+| Script | Qué hace |
+|---|---|
+| `scripts/respaldar.ps1` | Respalda base y fotos en `$HOME\urbia-respaldos` |
+| `scripts/restaurar.ps1` | Restaura un respaldo (reemplaza base y fotos) |
+| `scripts/cuentas-demo.ps1` | Crea las cuentas de prueba y promueve al administrador |
+
+Uso y detalles: [docs/operacion.md](../docs/operacion.md).
