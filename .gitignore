@@ -83,6 +83,9 @@ runs/
 temp/
 tmp/
 *.log
+# Respaldos (deployments/scripts/respaldar.ps1): nunca al repositorio
+*.dump
+urbia-respaldos/
 
 # ========================================
 # 6. IDEs y Sistema Operativo
