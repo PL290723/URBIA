@@ -1,0 +1,110 @@
+# Docker Compose de URBIA (HU 10.3)
+# PostgreSQL/PostGIS + migraciones + API Go + inferencia Python.
+# Uso (desde deployments/, con .env creado a partir de .env.example):
+#   docker compose up -d --build
+name: urbia
+
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en deployments/.env}
+      URBIA_OWNER_PASSWORD: ${URBIA_OWNER_PASSWORD:?Falta URBIA_OWNER_PASSWORD en deployments/.env}
+      URBIA_APP_PASSWORD: ${URBIA_APP_PASSWORD:?Falta URBIA_APP_PASSWORD en deployments/.env}
+      TZ: America/Mexico_City
+    volumes:
+      # PostgreSQL 18: el volumen se monta en /var/lib/postgresql (ya no en .../data)
+      - pgdata:/var/lib/postgresql
+      - ./db/20_urbia.sh:/docker-entrypoint-initdb.d/20_urbia.sh:ro
+      - ../database/scripts/02_habilitar_postgis.sql:/urbia-sql/02_habilitar_postgis.sql:ro
+    ports:
+      # Solo para DataGrip en este equipo; 5433 para no chocar con PostgreSQL de Windows
+      - "127.0.0.1:${DB_PUERTO_LOCAL:-5433}:5432"
+    networks: [interna, publica]
+    healthcheck:
+      # Por TCP: durante la inicialización PostgreSQL solo escucha por socket,
+      # así que no se marca healthy hasta terminar 20_urbia.sh
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d urbia"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  migraciones:
+    build:
+      context: ../database
+    image: urbia-migraciones:${URBIA_VERSION:-0.1.0}
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: "host=db port=5432 user=urbia_owner password=${URBIA_OWNER_PASSWORD} dbname=urbia sslmode=disable"
+      GOOSE_MIGRATION_DIR: /migrations
+    networks: [interna]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../backend-go
+      args:
+        VERSION: ${URBIA_VERSION:-0.1.0}
+    image: urbia-api:${URBIA_VERSION:-0.1.0}
+    environment:
+      APP_ENV: production
+      GIN_MODE: release
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: "8080"
+      DATABASE_URL: "postgres://urbia_app:${URBIA_APP_PASSWORD}@db:5432/urbia?sslmode=disable&search_path=urbia,public"
+      JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en deployments/.env}
+      JWT_TTL: ${JWT_TTL:-2h}
+      INFERENCE_URL: http://inferencia:8000
+      INFERENCE_GRPC_ADDR: inferencia:50051
+      STORAGE_DIR: /app/storage
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    volumes:
+      - storage:/app/storage
+    ports:
+      - "${API_PUERTO:-8080}:8080"
+    networks: [interna, publica]
+    depends_on:
+      db:
+        condition: service_healthy
+      migraciones:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    # Mayor que SHUTDOWN_TIMEOUT (10 s)
+    stop_grace_period: 15s
+
+  inferencia:
+    build:
+      context: ../inference-python
+    image: urbia-inferencia:${URBIA_VERSION:-0.1.0}
+    environment:
+      URBIA_DEVICE: cpu
+      URBIA_LOG_NIVEL: INFO
+    volumes:
+      # Solo lectura: Python nunca escribe fotos
+      - storage:/app/storage:ro
+    # Sin puertos publicados: gRPC y /health solo dentro de la red interna
+    networks: [interna]
+    depends_on:
+      # La API monta el volumen primero, así queda con dueño 10001 (Go) y no root
+      api:
+        condition: service_started
+    restart: unless-stopped
+    # Mayor que URBIA_APAGADO_GRACIA (10 s)
+    stop_grace_period: 15s
+
+networks:
+  # Sin salida a internet: comunicación entre contenedores
+  interna:
+    internal: true
+  # Para publicar el puerto de la API (y el de la base en 127.0.0.1)
+  publica: {}
+
+volumes:
+  pgdata:
+  storage:
