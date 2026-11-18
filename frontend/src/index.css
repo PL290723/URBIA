@@ -1,0 +1,159 @@
+/* Tipografía incluida en el build: la app debe verse igual sin internet (feria). */
+@import '@fontsource/barlow/latin-400.css';
+@import '@fontsource/barlow/latin-500.css';
+@import '@fontsource/barlow/latin-600.css';
+@import '@fontsource/barlow/latin-700.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-700.css';
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+/*
+ * Sistema visual de URBIA: obra pública y señalización vial.
+ *   petróleo  #144845  marca (del logo), navegación y acciones normales
+ *   asfalto   #22292a  texto
+ *   concreto  #f2f4f1  fondo de la app
+ *   línea     #d3dad6  bordes y divisiones
+ *   señal     #f2c230  amarillo de pintura vial: SOLO para "Reportar"
+ * Barlow viene de la señalética de carreteras; Barlow Condensed para títulos y cifras.
+ */
+@theme {
+  --color-urbia-50: #eef5f3;
+  --color-urbia-100: #d6e8e3;
+  --color-urbia-200: #aed3ca;
+  --color-urbia-300: #7db6aa;
+  --color-urbia-400: #4f958a;
+  --color-urbia-500: #337a70;
+  --color-urbia-600: #26635b;
+  --color-urbia-700: #1d554f;
+  --color-urbia-800: #144845;
+  --color-urbia-900: #0e3533;
+  --color-urbia-950: #072120;
+
+  --color-asfalto: #22292a;
+  --color-gris: #5b6664;
+  --color-gris-claro: #8a9592;
+  --color-concreto: #f2f4f1;
+  --color-linea: #d3dad6;
+  --color-senal: #f2c230;
+  --color-senal-oscura: #c99a0e;
+
+  --font-sans: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-titulo: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
+
+  /* Escala 1.25 sobre 16 px */
+  --text-xs: 0.8rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-concreto font-sans text-base text-asfalto antialiased;
+    font-feature-settings: 'tnum' 0;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply text-asfalto;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-urbia-600);
+    outline-offset: 2px;
+  }
+  .pb-segura {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-segura {
+    padding-top: env(safe-area-inset-top);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-4 text-[0.9375rem] font-semibold
+    transition-colors disabled:cursor-not-allowed disabled:opacity-45;
+}
+
+@utility titulo {
+  font-family: var(--font-titulo);
+  @apply font-bold leading-[1.05] tracking-[-0.005em];
+}
+
+@layer components {
+  .btn-primario {
+    @apply btn bg-urbia-800 text-white hover:bg-urbia-700 active:bg-urbia-900;
+  }
+  /* El único uso del amarillo vial */
+  .btn-reportar {
+    @apply btn bg-senal text-asfalto hover:bg-[#f5cd4f] active:bg-senal-oscura;
+  }
+  .btn-secundario {
+    @apply btn border border-linea bg-white text-asfalto hover:border-urbia-300 hover:bg-urbia-50;
+  }
+  .btn-texto {
+    @apply inline-flex items-center gap-1.5 font-semibold text-urbia-700 hover:text-urbia-900;
+  }
+  .btn-peligro {
+    @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  /* Superficie: hoja blanca con borde, sin sombra */
+  .hoja {
+    @apply rounded-2xl border border-linea bg-white;
+  }
+  .campo {
+    @apply block min-h-11 w-full rounded-[10px] border border-linea bg-white px-3 py-2 text-base text-asfalto
+      placeholder:text-gris-claro focus:border-urbia-500 focus:ring-3 focus:ring-urbia-100 focus:outline-none
+      disabled:bg-concreto;
+  }
+  .etiqueta {
+    @apply mb-1.5 block text-sm font-medium text-gris;
+  }
+  .seccion-titulo {
+    @apply text-base font-semibold text-asfalto;
+  }
+}
+
+/* Leaflet con la tipografía y los colores de la app */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 0;
+  background: #e8ece9;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgb(20 72 69 / 0.18);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 0.875rem;
+}
+.leaflet-bar a {
+  color: var(--color-asfalto);
+}
+.marcador-urbia {
+  background: none;
+  border: 0;
+}
+
+/* En celular la barra inferior tapa los controles de abajo del mapa principal */
+@media (max-width: 639px) {
+  .mapa-inicio .leaflet-bottom.leaflet-left {
+    bottom: 5.25rem;
+  }
+}

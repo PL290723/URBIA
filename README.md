@@ -10,6 +10,7 @@ darles seguimiento. MVP para la Feria de Proyectos TecNM Celaya 2026.
 
 | Componente | Tecnología | Carpeta |
 |---|---|---|
+| Frontend (PWA instalable) | React 19 + TypeScript + Vite, Tailwind, Leaflet, TanStack Query | `frontend/` |
 | API principal | Go 1.27 + Gin | `backend-go/` |
 | Servicio de inferencia | Python 3.11 + YOLO26 (Ultralytics) | `inference-python/` |
 | Comunicación interna | gRPC + Protocol Buffers | `proto/` |
@@ -33,6 +34,7 @@ curl.exe http://localhost:8080/api/v1/health
 
 | Tema | Documento |
 |---|---|
+| Frontend: instalación, celulares en la feria, HTTPS | [frontend/README.md](frontend/README.md) |
 | Requisitos, variables, base, migraciones y pesos YOLO | [docs/instalacion.md](docs/instalacion.md) |
 | Comandos, endpoints, cuentas de prueba y respaldos | [docs/operacion.md](docs/operacion.md) |
 | Problemas comunes y limitaciones del MVP | [docs/solucion-problemas.md](docs/solucion-problemas.md) |
