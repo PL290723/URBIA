@@ -85,6 +85,28 @@ Los mosaicos de OpenStreetMap vienen de internet. El service worker guarda los q
 vieron (hasta 3000, 30 días): antes de la feria, con internet, recorrer la zona de la demo en
 el mapa desde cada celular. Las fotos y la API nunca se guardan en caché.
 
+### Acceso desde internet (túnel de Cloudflare)
+
+Alternativa cuando no hay red local propia o hace falta HTTPS sin instalar certificados: un
+túnel temporal publica `vite preview` en una dirección `https://<nombre>.trycloudflare.com`.
+
+```powershell
+winget install Cloudflare.cloudflared
+npm run build
+npm run preview
+# En otra terminal (muestra la URL pública):
+cloudflared tunnel --url http://localhost:5173
+```
+
+- Con HTTPS, el GPS y la instalación funcionan en los celulares sin certificados.
+- **Expone la app y la API a internet** (las llamadas `/api` pasan por el proxy de Vite):
+  cualquiera con la URL puede registrarse y subir fotos. Usarlo solo durante la demostración,
+  con base de demo, `JWT_SECRET` nuevo y contraseña de administrador nueva, y cerrarlo con
+  Ctrl+C al terminar. La URL cambia en cada arranque.
+- Todas las peticiones llegan a la API desde el mismo origen, así que el límite de login es
+  compartido (ver `LOGIN_MAX_INTENTOS` en `deployments/feria.md`).
+- `vite preview` no es un servidor de producción; alcanza para la demostración.
+
 ## Estructura
 
 ```
