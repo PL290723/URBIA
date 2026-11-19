@@ -1,0 +1,28 @@
+info:
+  name: "10 POST historial no permitido"
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idHist}}/historial"
+  body:
+    type: json
+    data: |-
+      {"estado_nuevo": "resuelto"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("405", () => expect(res.status).to.equal(405));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

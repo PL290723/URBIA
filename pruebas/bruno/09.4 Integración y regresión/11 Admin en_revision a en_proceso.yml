@@ -1,0 +1,31 @@
+info:
+  name: "11 Admin en_revision a en_proceso"
+  type: http
+  seq: 12
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id094}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "en_proceso"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("en_revision → en_proceso", () => { expect(res.body.data.estado_anterior).to.equal("en_revision"); expect(res.body.data.estado_nuevo).to.equal("en_proceso"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

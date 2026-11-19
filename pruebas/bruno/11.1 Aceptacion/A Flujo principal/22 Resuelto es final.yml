@@ -1,0 +1,30 @@
+info:
+  name: "22 Resuelto es final"
+  type: http
+  seq: 22
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id111}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "en_revision"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("409: resuelto no admite cambios", () => expect(res.status).to.equal(409));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

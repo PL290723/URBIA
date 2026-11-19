@@ -1,0 +1,46 @@
+info:
+  name: "05 Distribución geográfica"
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "{{baseUrl}}/estadisticas?desde={{hoyLocal}}&hasta={{hoyLocal}}&geo=true&celda_grados=0.05"
+  params:
+    - name: desde
+      value: "{{hoyLocal}}"
+      type: query
+    - name: hasta
+      value: "{{hoyLocal}}"
+      type: query
+    - name: geo
+      value: "true"
+      type: query
+    - name: celda_grados
+      value: "0.05"
+      type: query
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const g = d.distribucion_geografica;
+        const body = JSON.stringify(res.body);
+        test("200", () => expect(res.status).to.equal(200));
+        test("mínimo 3 por celda", () => expect(g.minimo_por_celda).to.equal(3));
+        test("ninguna celda visible con menos de 3", () => g.celdas.forEach(c => expect(c.total).to.be.at.least(3)));
+        test("celdas + ocultos = total", () => expect(g.celdas.reduce((s, c) => s + c.total, 0) + g.reportes_ocultos).to.equal(d.total));
+        test("la zona de R1-R3 aparece", () => expect(g.celdas.some(c => Math.abs(c.latitud - Number(bru.getEnvVar("latStats"))) <= 0.05 && Math.abs(c.longitud - Number(bru.getEnvVar("lonStats"))) <= 0.05)).to.equal(true));
+        test("sin datos personales", () => { for (const p of ["id_usuario", "correo", "descripcion", "id_reporte", "nombre_autor"]) expect(body).to.not.include(p); });
+        test("sin coordenadas exactas", () => { expect(body).to.not.include(bru.getEnvVar("latStats")); expect(body).to.not.include(bru.getEnvVar("lonStats")); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

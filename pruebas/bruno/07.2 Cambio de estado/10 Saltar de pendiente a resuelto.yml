@@ -1,0 +1,33 @@
+info:
+  name: "10 Saltar de pendiente a resuelto"
+  type: http
+  seq: 12
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{idEstadoSalto}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "resuelto"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const e = res.body.error;
+        test("409", () => expect(res.status).to.equal(409));
+        test("CONFLICTO", () => expect(e.code).to.equal("CONFLICTO"));
+        test("estado actual pendiente", () => expect(e.details.estado_actual).to.equal("pendiente"));
+        test("estados permitidos", () => expect(e.details.estados_permitidos).to.eql(["en_revision"]));
+        test("mensaje", () => expect(e.message).to.include("solo se permite: en_revision"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

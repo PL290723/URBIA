@@ -1,0 +1,24 @@
+info:
+  name: "10 Modelo de vuelta - health directo"
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "http://localhost:8000/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: Remove-Item Env:URBIA_MODELO_CONFIG  y  python -m scripts.servidor_grpc
+        test("200 listo", () => { expect(res.status).to.equal(200); expect(res.body.estado).to.equal("listo"); });
+        test("mismo modelo", () => expect(res.body.modelo.version).to.equal("1.0.0"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

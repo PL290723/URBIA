@@ -1,0 +1,30 @@
+info:
+  name: "08 Sin modelo - API degradada"
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES (en la terminal de inference-python):
+        //   1. Ctrl+C para detener el servidor
+        //   2. $env:URBIA_MODELO_CONFIG = "config\no-existe.json"
+        //   3. python -m scripts.servidor_grpc   -> debe terminar con MODELO_NO_DISPONIBLE (no arranca)
+        //   4. Espera ~15 s (INFERENCE_CHECK_INTERVAL de Go) y corre esta request
+        const d = res.body.data;
+        test("200: la API sigue atendiendo", () => expect(res.status).to.equal(200));
+        test("degradado", () => expect(d.status).to.equal("degradado"));
+        test("inferencia caída", () => expect(d.dependencias.inferencia.estado).to.equal("caido"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

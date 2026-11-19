@@ -1,0 +1,7 @@
+info:
+  name: 09.1 Seguridad API y archivos
+  type: folder
+  seq: 20
+
+request:
+  auth: inherit

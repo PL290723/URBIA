@@ -1,0 +1,37 @@
+info:
+  name: "02 Por defecto 30 días"
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{baseUrl}}/estadisticas"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("30 días por día", () => { expect(d.filtros.dias).to.equal(30); expect(d.filtros.agrupacion).to.equal("dia"); });
+        test("serie completa de 30", () => expect(d.por_periodo.length).to.equal(30));
+        test("termina hoy", () => { expect(d.filtros.hasta).to.equal(bru.getEnvVar("hoyLocal")); expect(d.por_periodo[29].inicio).to.equal(bru.getEnvVar("hoyLocal")); });
+        test("zona horaria", () => expect(d.filtros.zona_horaria).to.equal("America/Mexico_City"));
+        test("sin geo por defecto", () => expect(d).to.not.have.property("distribucion_geografica"));
+
+        const suma = (xs) => xs.reduce((s, x) => s + x.total, 0);
+        test("Σ por_estado = total", () => expect(suma(d.por_estado)).to.equal(d.total));
+        test("Σ por_categoria = total", () => expect(suma(d.por_categoria)).to.equal(d.total));
+        test("Σ por_periodo = total", () => expect(suma(d.por_periodo)).to.equal(d.total));
+        test("4 estados en orden", () => expect(d.por_estado.map(e => e.estado)).to.eql(["pendiente", "en_revision", "en_proceso", "resuelto"]));
+        test("sin_categoria al final", () => expect(d.por_categoria[d.por_categoria.length - 1].nombre).to.equal("sin_categoria"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

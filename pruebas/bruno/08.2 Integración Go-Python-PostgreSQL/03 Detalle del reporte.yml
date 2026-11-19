@@ -1,0 +1,28 @@
+info:
+  name: "03 Detalle del reporte"
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idInteg}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("pendiente", () => expect(d.estado).to.equal("pendiente"));
+        test("sugerencia leída de PostgreSQL", () => expect(d.sugerencia.estado).to.equal("sugerida"));
+        test("foto con url", () => expect(d.foto.url).to.equal("/api/v1/archivos/" + bru.getEnvVar("idArchivoInteg")));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

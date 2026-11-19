@@ -1,0 +1,34 @@
+info:
+  name: "06 Gravedad fuera de rango"
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "gravedad_observable": 7
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("regla rango", () => {
+          const e = res.body.error.details.find(x => x.campo === "gravedad_observable");
+          expect(e.regla).to.equal("rango");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

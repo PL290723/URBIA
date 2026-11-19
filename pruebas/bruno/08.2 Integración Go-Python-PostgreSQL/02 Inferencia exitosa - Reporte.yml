@@ -1,0 +1,63 @@
+info:
+  name: "02 Inferencia exitosa - Reporte"
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[IT 08.2] Flujo completo con IA"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "8.5"
+  headers:
+    - name: X-Request-ID
+      value: it082-bruno-exitosa
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 201) {
+          bru.setEnvVar("idInteg", res.body.data.id_reporte);
+          bru.setEnvVar("idArchivoInteg", res.body.data.foto.id_archivo);
+        }
+    - type: tests
+      code: |-
+        const s = res.body.data.sugerencia;
+        test("201", () => expect(res.status).to.equal(201));
+        test("Location", () => expect(res.headers["location"]).to.equal("/api/v1/reportes/" + res.body.data.id_reporte));
+        test("X-Request-ID se conserva", () => expect(res.headers["x-request-id"]).to.equal("it082-bruno-exitosa"));
+        test("Python sugirió bache", () => { expect(s.estado).to.equal("sugerida"); expect(s.categoria.nombre).to.equal("bache"); });
+        test("confianza 0..1", () => expect(s.confianza).to.be.within(0, 1));
+        test("modelo y versión", () => { expect(s.modelo).to.be.a("string"); expect(s.version_modelo).to.be.a("string"); });
+        test("detección guardada en PostgreSQL", () => expect(s.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

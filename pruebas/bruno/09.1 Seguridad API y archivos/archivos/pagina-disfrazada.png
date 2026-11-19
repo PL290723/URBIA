@@ -1,0 +1,1 @@
+<!DOCTYPE html><html><body><script>fetch("/api/v1/admin/usuarios")</script></body></html>

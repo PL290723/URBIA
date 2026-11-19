@@ -1,0 +1,28 @@
+info:
+  name: "47 CORS - lectura desde origen no permitido"
+  type: http
+  seq: 47
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes"
+  headers:
+    - name: Origin
+      value: "http://sitio-malicioso.example"
+  auth:
+    type: bearer
+    token: "{{token091A}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("se atiende (200)", () => expect(res.status).to.equal(200));
+        test("sin encabezados CORS: el navegador bloquea la lectura", () => expect(res.getHeader("access-control-allow-origin")).to.be.undefined);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

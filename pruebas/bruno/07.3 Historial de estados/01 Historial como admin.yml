@@ -1,0 +1,43 @@
+info:
+  name: "01 Historial como admin"
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idHist}}/historial"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const ev = d.eventos;
+        test("200", () => expect(res.status).to.equal(200));
+        test("estado actual en_proceso", () => expect(d.estado_actual).to.equal("en_proceso"));
+        test("solo lectura", () => expect(d.solo_lectura).to.equal(true));
+        test("3 eventos", () => { expect(d.total).to.equal(3); expect(ev.length).to.equal(3); });
+        test("secuencia", () => expect(ev.map(e => e.estado_nuevo)).to.eql(["pendiente", "en_revision", "en_proceso"]));
+        test("tipos", () => expect(ev.map(e => e.tipo)).to.eql(["creacion", "cambio_estado", "cambio_estado"]));
+        test("creación sin anterior", () => expect(ev[0].estado_anterior).to.equal(null));
+        test("anterior = nuevo previo", () => { for (let i = 1; i < ev.length; i++) expect(ev[i].estado_anterior).to.equal(ev[i - 1].estado_nuevo); });
+        test("orden cronológico", () => { for (let i = 1; i < ev.length; i++) {
+          expect(new Date(ev[i].fecha) >= new Date(ev[i - 1].fecha)).to.equal(true);
+          expect(ev[i].id_historial_estado).to.be.above(ev[i - 1].id_historial_estado); } });
+        test("creó un ciudadano", () => expect(ev[0].actor.rol).to.equal("ciudadano"));
+        test("cambios por administrador con id y nombre", () => { for (const e of ev.slice(1)) {
+          expect(e.actor.rol).to.equal("administrador");
+          expect(e.actor.id_usuario).to.be.a("number");
+          expect(e.actor.nombre).to.be.a("string"); } });
+        test("sin correos", () => expect(JSON.stringify(d)).to.not.include("@"));
+        if (res.status === 200) { bru.setEnvVar("histPrimeros", JSON.stringify(ev)); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

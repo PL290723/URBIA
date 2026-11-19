@@ -1,0 +1,28 @@
+info:
+  name: "04 Contrato 401 sin token"
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Debe ser idéntico al ejemplo components.responses.NoAutorizado (sinToken)
+        test("401", () => expect(res.status).to.equal(401));
+        test("cuerpo igual al documentado", () => expect(res.body).to.eql({
+          success: false,
+          error: { code: "NO_AUTORIZADO", message: "Se requiere un token de acceso" }
+        }));
+        test("WWW-Authenticate", () => expect(res.getHeader("www-authenticate")).to.equal('Bearer realm="urbia"'));
+        test("X-Request-ID", () => expect(res.getHeader("x-request-id")).to.be.a("string").and.not.empty);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

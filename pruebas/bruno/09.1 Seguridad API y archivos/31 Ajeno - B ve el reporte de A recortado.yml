@@ -1,0 +1,33 @@
+info:
+  name: "31 Ajeno - B ve el reporte de A recortado"
+  type: http
+  seq: 31
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idReporte091}}"
+  auth:
+    type: bearer
+    token: "{{token091B}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200 como reporte ajeno", () => { expect(res.status).to.equal(200); expect(d.es_propio).to.equal(false); });
+        test("ubicación aproximada (3 decimales)", () => {
+          expect(d.ubicacion.aproximada).to.equal(true);
+          expect(d.ubicacion.latitud).to.not.equal(20.522345);
+          expect((String(d.ubicacion.latitud).split(".")[1] || "").length).to.be.at.most(3);
+        });
+        test("sin foto, sugerencia, historial ni datos administrativos", () => {
+          ["foto", "sugerencia", "historial", "administrativo"].forEach((k) => expect(d).to.not.have.property(k));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,28 @@
+info:
+  name: "A2 Admin a en_proceso"
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{idHist}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "en_proceso"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

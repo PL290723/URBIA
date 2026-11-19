@@ -1,0 +1,36 @@
+info:
+  name: "02 POST sin cuerpo insuficiente"
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const rec = d.factores.find(f => f.factor === "recurrencia_verificada");
+        const grav = d.factores.find(f => f.factor === "gravedad_observable");
+        test("201", () => expect(res.status).to.equal(201));
+        test("no inventa: nivel null", () => expect(d.nivel).to.equal(null));
+        test("datos insuficientes", () => expect(d.datos_suficientes).to.equal(false));
+        test("no asigna prioridad", () => expect(d.prioridad_asignada).to.equal(false));
+        test("cobertura 0.3", () => expect(d.cobertura).to.equal(0.3));
+        test("faltan gravedad y afectación", () => expect(d.factores_faltantes).to.eql(["gravedad_observable", "afectacion_estimada"]));
+        test("gravedad sin valor", () => { expect(grav.disponible).to.equal(false); expect(grav.valor).to.equal(null); });
+        test("1 recurrente (R2)", () => expect(rec.detalle.reportes).to.equal(1));
+        test("R2 en la explicación", () => expect(rec.detalle.ids_reportes).to.include(Number(bru.getEnvVar("idPrioRec"))));
+        test("provisional", () => { expect(d.provisional).to.equal(true); expect(d.version_formula).to.equal("v1-provisional"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

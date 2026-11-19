@@ -1,0 +1,35 @@
+info:
+  name: "05 Justificación corta"
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "afectacion_estimada": 3,
+        "justificacion_afectacion": "corta"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("regla longitud", () => {
+          const e = res.body.error.details.find(x => x.campo === "justificacion_afectacion");
+          expect(e.regla).to.equal("longitud");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

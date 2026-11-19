@@ -1,0 +1,31 @@
+info:
+  name: "13 Resuelto es final"
+  type: http
+  seq: 14
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id094}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "en_proceso"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("409", () => expect(res.status).to.equal(409));
+        test("sin estados permitidos", () => expect(res.body.error.details.estados_permitidos).to.eql([]));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

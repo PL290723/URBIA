@@ -1,0 +1,53 @@
+info:
+  name: "02 Imagen valida - bache"
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/bache.jpeg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.3] Imagen v\u00e1lida de bache"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "8.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const s = res.body.data.sugerencia;
+        test("201", () => expect(res.status).to.equal(201));
+        test("sugerida", () => expect(s.estado).to.equal("sugerida"));
+        test("bache", () => expect(s.categoria.nombre).to.equal("bache"));
+        test("confianza >= umbral 0.25 y <= 1", () => expect(s.confianza).to.be.within(0.25, 1));
+        test("modelo y versión", () => { expect(s.modelo).to.equal("urbia-yolo26s"); expect(s.version_modelo).to.equal("1.0.0"); });
+        test("detección guardada", () => expect(s.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

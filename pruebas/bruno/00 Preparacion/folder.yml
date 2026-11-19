@@ -1,0 +1,7 @@
+info:
+  name: 00 Preparacion
+  type: folder
+  seq: 0
+
+request:
+  auth: inherit

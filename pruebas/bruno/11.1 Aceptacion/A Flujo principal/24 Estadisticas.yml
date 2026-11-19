@@ -1,0 +1,32 @@
+info:
+  name: "24 Estadisticas"
+  type: http
+  seq: 24
+
+http:
+  method: GET
+  url: "{{baseUrl}}/estadisticas"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("total y desgloses", () => {
+          expect(d.total).to.be.at.least(1);
+          expect(d.por_estado).to.be.an("array");
+          expect(d.por_categoria).to.be.an("array");
+          expect(d.por_periodo).to.be.an("array");
+          expect(d.filtros.zona_horaria).to.be.a("string");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

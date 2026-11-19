@@ -1,0 +1,45 @@
+info:
+  name: "R3 Sin categoría"
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Problema en la calle, no sé qué categoría es"
+      - name: latitud
+        type: text
+        value: "{{latPrioLejos}}"
+      - name: longitud
+        type: text
+        value: "{{lonPrio}}"
+      - name: origen_ubicacion
+        type: text
+        value: "manual"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        if (res.status === 201) { bru.setEnvVar("idPrioSinCat", res.body.data.id_reporte); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

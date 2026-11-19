@@ -1,0 +1,31 @@
+info:
+  name: "29 Reporte intacto tras reinicio"
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id111}}"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200: el token de antes del reinicio sigue valiendo", () => expect(res.status).to.equal(200));
+        test("estado, categoria, deteccion y foto se conservan", () => {
+          expect(d.estado).to.equal("resuelto");
+          expect(d.categoria.id_categoria).to.equal(Number(bru.getEnvVar("categoria111")));
+          expect(d.administrativo.deteccion.id_deteccion).to.equal(Number(bru.getEnvVar("idDeteccion111")));
+          expect(d.foto.id_archivo).to.equal(Number(bru.getEnvVar("idArchivo111")));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

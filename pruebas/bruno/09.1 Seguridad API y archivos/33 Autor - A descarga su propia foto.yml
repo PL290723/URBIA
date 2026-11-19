@@ -1,0 +1,30 @@
+info:
+  name: "33 Autor - A descarga su propia foto"
+  type: http
+  seq: 33
+
+http:
+  method: GET
+  url: "{{baseUrl}}/archivos/{{idArchivo091}}"
+  auth:
+    type: bearer
+    token: "{{token091A}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("es JPEG", () => expect(res.getHeader("content-type")).to.equal("image/jpeg"));
+        test("privada y sin sniffing", () => {
+          expect(res.getHeader("cache-control")).to.equal("private, no-store");
+          expect(res.getHeader("x-content-type-options")).to.equal("nosniff");
+        });
+        test("nombre generado por la API", () => expect(res.getHeader("content-disposition")).to.match(/^inline; filename="urbia-\d+\.jpg"$/));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

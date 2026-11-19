@@ -1,0 +1,7 @@
+info:
+  name: 07.3 Historial de estados
+  type: folder
+  seq: 16
+
+request:
+  auth: inherit

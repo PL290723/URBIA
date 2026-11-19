@@ -1,0 +1,23 @@
+info:
+  name: 18c
+  type: http
+  seq: 20
+
+http:
+  method: GET
+  url: "{{baseUrl}}/archivos/{{idFotoPropia}}"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: test("200", () => expect(res.status).to.equal(200));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

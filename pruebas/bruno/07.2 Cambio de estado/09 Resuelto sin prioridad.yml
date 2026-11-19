@@ -1,0 +1,25 @@
+info:
+  name: "09 Resuelto sin prioridad"
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idEstado}}/prioridad"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // HU 07.1: un reporte resuelto ya no se prioriza
+        test("409", () => expect(res.status).to.equal(409));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

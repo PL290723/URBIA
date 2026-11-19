@@ -1,0 +1,51 @@
+info:
+  name: "R4 Nuevo recurrente"
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Bache en la misma avenida, cerca del semáforo"
+      - name: latitud
+        type: text
+        value: "{{latPrioCerca2}}"
+      - name: longitud
+        type: text
+        value: "{{lonPrio}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "10"
+      - name: id_categoria
+        type: text
+        value: "1"
+  auth:
+    type: bearer
+    token: "{{tokenTercero}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        if (res.status === 201) { bru.setEnvVar("idPrioRec2", res.body.data.id_reporte); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

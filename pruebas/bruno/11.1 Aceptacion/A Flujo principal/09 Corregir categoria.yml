@@ -1,0 +1,38 @@
+info:
+  name: "09 Corregir categoria"
+  type: http
+  seq: 9
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{id111}}/categoria"
+  body:
+    type: json
+    data: |-
+      {
+        "id_categoria": {{categoria111}}
+      }
+  auth:
+    type: bearer
+    token: "{{token111}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Se elige la categoria contraria a la sugerida para forzar una correccion (semilla: 1 = bache, 3 = basura)
+        bru.setEnvVar("categoria111", bru.getEnvVar("sugerida111") === "bache" ? "3" : "1");
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const sugerida = bru.getEnvVar("sugerida111");
+        test("200 con la categoria nueva", () => { expect(res.status).to.equal(200); expect(d.categoria.id_categoria).to.equal(Number(bru.getEnvVar("categoria111"))); });
+        test("origen corregida (manual si la IA no sugirio)", () => expect(d.origen).to.equal(sugerida ? "corregida" : "manual"));
+        test("conserva la deteccion original", () => expect(d.id_deteccion).to.equal(Number(bru.getEnvVar("idDeteccion111"))));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

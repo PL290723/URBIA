@@ -1,0 +1,29 @@
+info:
+  name: "18 Reinicio - todo arriba de nuevo"
+  type: http
+  seq: 19
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: reinicia TODO (ver pasos en docs/backend/regresion.md):
+        //   1. Ctrl+C en la API (go run) y en Python (servidor_grpc)
+        //   2. PowerShell como administrador: Restart-Service postgresql-x64-18
+        //   3. Levanta Python y luego la API; espera ~15 s
+        const d = res.body.data;
+        test("200 ok", () => { expect(res.status).to.equal(200); expect(d.status).to.equal("ok"); });
+        test("PostgreSQL e IA activos", () => { expect(d.dependencias.database.estado).to.equal("activo"); expect(d.dependencias.inferencia.estado).to.equal("activo"); });
+        test("es un proceso nuevo (uptime corto)", () => expect(d.uptime_segundos).to.be.below(600));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

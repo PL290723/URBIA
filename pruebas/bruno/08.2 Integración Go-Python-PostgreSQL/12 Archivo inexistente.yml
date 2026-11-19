@@ -1,0 +1,26 @@
+info:
+  name: "12 Archivo inexistente"
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{baseUrl}}/archivos/999999999"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("404", () => expect(res.status).to.equal(404));
+        test("NO_ENCONTRADO", () => expect(res.body.error.code).to.equal("NO_ENCONTRADO"));
+        test("mensaje controlado", () => expect(res.body.error.message).to.equal("Archivo no encontrado"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

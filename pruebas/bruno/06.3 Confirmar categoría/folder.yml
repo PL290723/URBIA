@@ -1,0 +1,7 @@
+info:
+  name: 06.3 Confirmar categoría
+  type: folder
+  seq: 4
+
+request:
+  auth: inherit

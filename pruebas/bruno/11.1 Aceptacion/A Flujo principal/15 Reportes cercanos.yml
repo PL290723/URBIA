@@ -1,0 +1,31 @@
+info:
+  name: "15 Reportes cercanos"
+  type: http
+  seq: 15
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id111}}/cercanos"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("reporte base y parametros", () => {
+          expect(d.reporte.id_reporte).to.equal(Number(bru.getEnvVar("id111")));
+          expect(d.parametros.radio_m).to.be.a("number");
+          expect(d.parametros.ventana_dias).to.be.a("number");
+          expect(d.coincidencias).to.be.an("array");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

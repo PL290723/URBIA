@@ -1,0 +1,35 @@
+info:
+  name: "10 Detalle administrador - deteccion intacta"
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id111}}"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const det = d.administrativo.deteccion;
+        const sugerida = bru.getEnvVar("sugerida111");
+        test("200 con la categoria corregida", () => { expect(res.status).to.equal(200); expect(d.categoria.id_categoria).to.equal(Number(bru.getEnvVar("categoria111"))); });
+        test("misma deteccion, modelo y version", () => {
+          expect(det.id_deteccion).to.equal(Number(bru.getEnvVar("idDeteccion111")));
+          expect(["detectado", "no_detectado"]).to.include(det.resultado);
+          expect(det.modelo).to.be.a("string");
+          expect(det.version_modelo).to.be.a("string");
+        });
+        test("la clase detectada no cambio con la correccion", () => { if (sugerida) expect(det.clase_detectada).to.equal(sugerida); });
+        test("autor visible para el administrador", () => expect(d.administrativo.autor.correo).to.equal("ciudadano.demo@urbia.test"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

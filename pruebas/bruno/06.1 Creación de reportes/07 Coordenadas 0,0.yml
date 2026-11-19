@@ -1,0 +1,49 @@
+info:
+  name: 07 Coordenadas 0,0
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/basura_dos.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+      - name: latitud
+        type: text
+        value: "0"
+      - name: longitud
+        type: text
+        value: "0"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "12.5"
+      - name: id_categoria
+        type: text
+        value: "3"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: test("400", () => expect(res.status).to.equal(400)); test("sin señal", () => expect(res.body.error.details[0].regla).to.equal("sin_senal"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

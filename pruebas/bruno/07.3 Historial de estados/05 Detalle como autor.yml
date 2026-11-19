@@ -1,0 +1,26 @@
+info:
+  name: "05 Detalle como autor"
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idHist}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const h = res.body.data.historial;
+        test("200", () => expect(res.status).to.equal(200));
+        test("actor solo con rol", () => { expect(h[1].actor.rol).to.equal("administrador"); expect(h[1].actor).to.not.have.property("nombre"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
