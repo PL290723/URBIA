@@ -149,6 +149,11 @@ Con Docker Desktop todos los dispositivos llegan a la API con la IP del proxy de
 así que el límite de login (hallazgo 4) es compartido: en la feria se sube con
 `LOGIN_MAX_INTENTOS` (ver `deployments/feria.md`).
 
+**Túnel de Cloudflare (opcional).** El frontend permite abrir la app por un túnel
+`*.trycloudflare.com` (ver `frontend/README.md`). Eso publica la app **y la API** en internet
+con HTTPS, fuera de la red cerrada que describe esta sección: usarlo solo durante la
+demostración, con base de demo y secretos nuevos, y cerrar el túnel al terminar.
+
 ## Limitaciones conocidas
 
 - El límite de login vive en memoria: se reinicia con la API y no se comparte entre instancias.

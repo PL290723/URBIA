@@ -1,0 +1,44 @@
+info:
+  name: "R4 Sin categoría"
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Reporte sin categoría para estadísticas"
+      - name: latitud
+        type: text
+        value: "{{latStats}}"
+      - name: longitud
+        type: text
+        value: "{{lonStats}}"
+      - name: origen_ubicacion
+        type: text
+        value: "manual"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

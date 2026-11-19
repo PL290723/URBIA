@@ -1,0 +1,39 @@
+info:
+  name: "07 Afectación justificada"
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "afectacion_estimada": 3,
+        "justificacion_afectacion": "Avenida principal con paso de transporte público"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const grav = d.factores.find(f => f.factor === "gravedad_observable");
+        const afec = d.factores.find(f => f.factor === "afectacion_estimada");
+        test("201", () => expect(res.status).to.equal(201));
+        test("cobertura 1", () => expect(d.cobertura).to.equal(1));
+        test("sin faltantes", () => expect(d.factores_faltantes).to.eql([]));
+        test("reutiliza gravedad 4", () => expect(grav.detalle.evaluacion).to.equal(4));
+        test("guarda la justificación", () => expect(afec.detalle.justificacion).to.include("transporte"));
+        test("~50 puntos (media)", () => { expect(d.puntuacion).to.be.within(49, 52); expect(d.nivel).to.equal("media"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,7 @@
+info:
+  name: 08.2 Integración Go-Python-PostgreSQL
+  type: folder
+  seq: 19
+
+request:
+  auth: inherit

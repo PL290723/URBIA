@@ -1,0 +1,23 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0
+rootdir: C:\Users\junio\Downloads\URBIA\inference-python
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-4.16.0
+collected 226 items
+
+tests\test_almacen.py ................s                                  [  7%]
+tests\test_casos_inferencia.py ......................................... [ 25%]
+..                                                                       [ 26%]
+tests\test_clases.py ......                                              [ 29%]
+tests\test_contrato_grpc.py ..................                           [ 37%]
+tests\test_dataset.py ........................                           [ 47%]
+tests\test_decision.py .........                                         [ 51%]
+tests\test_evaluacion.py ........                                        [ 55%]
+tests\test_metadatos.py .....                                            [ 57%]
+tests\test_preprocesamiento.py ...................                       [ 65%]
+tests\test_servicio.py ..................                                [ 73%]
+tests\test_servidor.py ................................................. [ 95%]
+..........                                                               [100%]
+
+======================= 225 passed, 1 skipped in 55.24s =======================

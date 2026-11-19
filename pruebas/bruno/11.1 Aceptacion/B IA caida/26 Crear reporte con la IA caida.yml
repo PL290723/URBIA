@@ -1,0 +1,49 @@
+info:
+  name: "26 Crear reporte con la IA caida"
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/bache.jpeg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[11.1] Reporte con la IA detenida - aceptacion"
+      - name: latitud
+        type: text
+        value: "20.5420"
+      - name: longitud
+        type: text
+        value: "-100.8130"
+      - name: origen_ubicacion
+        type: text
+        value: "manual"
+  auth:
+    type: bearer
+    token: "{{token111}}"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 201) bru.setEnvVar("idSinIA111", String(res.body.data.id_reporte));
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("201: el reporte se guarda aunque la IA falle", () => { expect(res.status).to.equal(201); expect(d.estado).to.equal("pendiente"); expect(d.foto).to.not.equal(null); });
+        test("sugerencia no_disponible", () => expect(d.sugerencia.estado).to.equal("no_disponible"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

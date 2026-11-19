@@ -1,0 +1,24 @@
+info:
+  name: "10 Como ciudadano"
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("403", () => expect(res.status).to.equal(403));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,5 @@
+﻿CONTAINER             REPOSITORY          TAG                 PLATFORM            IMAGE ID            SIZE                CREATED
+urbia-api-1           urbia-api           0.1.0               linux/amd64         fedcf80953da        57.1MB              43 hours ago
+urbia-db-1            postgis/postgis     18-3.6              linux/amd64         4a43e3c3e5d5        959MB               3 weeks ago
+urbia-inferencia-1    urbia-inferencia    0.1.0               linux/amd64         ca48a739d5f0        2.57GB              40 hours ago
+urbia-migraciones-1   urbia-migraciones   0.1.0               linux/amd64         d18851d28635        29.9MB              40 hours ago

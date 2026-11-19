@@ -1,0 +1,30 @@
+info:
+  name: "12 Estado inexistente"
+  type: http
+  seq: 14
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{idEstadoSalto}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "cerrado"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("VALIDACION_FALLIDA", () => expect(res.body.error.code).to.equal("VALIDACION_FALLIDA"));
+        test("regla valor_permitido", () => expect(res.body.error.details[0].regla).to.equal("valor_permitido"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

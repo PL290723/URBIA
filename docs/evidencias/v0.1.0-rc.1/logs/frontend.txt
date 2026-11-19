@@ -1,0 +1,52 @@
+﻿
+added 434 packages in 1m
+
+> urbia-frontend@0.1.0 typecheck
+> tsc -b
+
+
+> urbia-frontend@0.1.0 lint
+> oxlint
+
+Found 0 warnings and 0 errors.
+Finished in 60ms on 32 files with 116 rules using 16 threads.
+
+> urbia-frontend@0.1.0 build
+> tsc -b && vite build
+
+[36mvite v8.3.8 [32mbuilding client environment for production...[36m[39m
+transforming...
+Γ£ô 4811 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                       0.82 kB
+dist/index.html                                                 1.16 kB Γöé gzip:   0.56 kB
+dist/assets/barlow-condensed-latin-700-normal-Dmwat-ge.woff    18.82 kB
+dist/assets/barlow-condensed-latin-600-normal-BFJEwTuo.woff    18.89 kB
+dist/assets/barlow-latin-500-normal-C1h8hMer.woff              19.51 kB
+dist/assets/barlow-latin-400-normal-fsAxiSwU.woff              19.58 kB
+dist/assets/barlow-latin-700-normal-__SGTsZ1.woff              19.76 kB
+dist/assets/barlow-latin-600-normal-CNwfPWQD.woff              19.88 kB
+dist/assets/barlow-latin-500-normal-BPAOfeC8.woff2             22.00 kB
+dist/assets/barlow-latin-400-normal-qiz4-Cze.woff2             22.19 kB
+dist/assets/barlow-condensed-latin-600-normal-DepVgxBB.woff2   22.30 kB
+dist/assets/barlow-condensed-latin-700-normal-v1xN8_Wq.woff2   22.44 kB
+dist/assets/barlow-latin-600-normal-DILqtrty.woff2             22.77 kB
+dist/assets/barlow-latin-700-normal-A9pxMQ4z.woff2             22.78 kB
+dist/assets/index-QGlodv7A.css                                 55.08 kB Γöé gzip:  14.46 kB
+dist/assets/Usuarios-BaJB4PRL.js                                3.00 kB Γöé gzip:   1.30 kB
+dist/assets/workbox-window.prod.es5-Bd17z0YL.js                 5.65 kB Γöé gzip:   2.20 kB
+dist/assets/AdminReportes-CHg8DqC9.js                           6.52 kB Γöé gzip:   2.28 kB
+dist/assets/HerramientasReporte-CettdBjU.js                    10.24 kB Γöé gzip:   3.46 kB
+dist/assets/formato-Cuuuf1UA.js                                61.15 kB Γöé gzip:  20.20 kB
+dist/assets/Panel-zMnv5jHy.js                                 450.79 kB Γöé gzip: 127.49 kB
+dist/assets/index-D7lGT9c8.js                                 470.76 kB Γöé gzip: 144.91 kB
+
+[32mΓ£ô built in 1.15s[39m
+
+PWA v2.0.0
+mode      generateSW
+precache  33 entries (1656.13 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-35e397ac.js

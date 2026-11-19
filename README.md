@@ -6,6 +6,18 @@ URBIA recibe reportes ciudadanos geolocalizados con foto (baches, basura y otras
 sugiere la categoría con un modelo de visión por computadora y permite a los administradores
 darles seguimiento. MVP para la Feria de Proyectos TecNM Celaya 2026.
 
+## Versión actual
+
+**v0.1.0-rc.1**, versión candidata para la Feria de Proyectos. Qué incluye, cómo se verificó y
+qué defectos conocidos tiene: [notas de la versión](docs/versiones/v0.1.0-rc.1.md).
+
+| Componente | Versión |
+|---|---|
+| Backend (API Go e imágenes Docker) | 0.1.0 |
+| Contrato de la API (OpenAPI) | 1.0.0 (`/api/v1`) |
+| Frontend (PWA) | 0.1.0 |
+| Modelo de IA | `urbia-yolo26s` 1.0.0 (Release `modelo-v1.0.0`) |
+
 ## Arquitectura
 
 | Componente | Tecnología | Carpeta |
@@ -45,8 +57,13 @@ curl.exe http://localhost:8080/api/v1/health
 | Modelo de IA | [docs/vision/modelo.md](docs/vision/modelo.md) |
 | Contrato gRPC | [docs/vision/contrato-grpc.md](docs/vision/contrato-grpc.md) |
 | Funcionalidad por historia de usuario | `docs/backend/` y `docs/vision/` |
+| Pruebas de la API (colección de Bruno) | [pruebas/bruno/README.md](pruebas/bruno/README.md) |
+| Checklist de aceptación del backend | [docs/aceptacion.md](docs/aceptacion.md) |
+| Defectos conocidos | [docs/defectos-conocidos.md](docs/defectos-conocidos.md) |
+| Evidencias de la versión candidata | [docs/evidencias/v0.1.0-rc.1/](docs/evidencias/v0.1.0-rc.1/README.md) |
 
 ## Flujo de trabajo
 
 Ramas `feature/<nombre>` desde `develop`, fusionadas por PR. Commits con estilo
-*conventional commits* (`feat(go): ...`, `docs: ...`).
+*conventional commits* (`feat(go): ...`, `docs: ...`). `main` solo recibe versiones, por PR
+desde `develop`, y cada una lleva una etiqueta `vX.Y.Z` (las candidatas, `vX.Y.Z-rc.N`).

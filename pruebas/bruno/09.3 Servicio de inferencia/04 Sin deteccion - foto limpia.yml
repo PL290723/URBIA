@@ -1,0 +1,53 @@
+info:
+  name: "04 Sin deteccion - foto limpia"
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/limpia.jpg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.3] Calle limpia sin incidencias"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "8.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Resultado incierto: ninguna caja alcanza el umbral -> sin categoría sugerida
+        const s = res.body.data.sugerencia;
+        test("201: el reporte se guarda", () => expect(res.status).to.equal(201));
+        test("sin_deteccion", () => expect(s.estado).to.equal("sin_deteccion"));
+        test("sin categoría ni confianza", () => { expect(s.categoria).to.equal(null); expect(s.confianza).to.equal(null); });
+        test("Python sí respondió (trae modelo)", () => expect(s.modelo).to.equal("urbia-yolo26s"));
+        test("detección guardada", () => expect(s.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

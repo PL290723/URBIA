@@ -1,0 +1,42 @@
+info:
+  name: "16 Calcular prioridad"
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{id111}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "gravedad_observable": 4,
+        "afectacion_estimada": 3,
+        "justificacion_afectacion": "Afecta la entrada de estudiantes y vehiculos a la escuela"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("calculo exitoso", () => expect([200, 201]).to.include(res.status));
+        test("4 factores con peso y explicacion", () => {
+          expect(d.factores).to.have.lengthOf(4);
+          d.factores.forEach(f => { expect(f.explicacion).to.be.a("string").and.not.be.empty; expect(f.peso).to.be.a("number"); });
+        });
+        test("resumen, puntuacion y version de formula", () => {
+          expect(d.resumen).to.be.a("string").and.not.be.empty;
+          expect(d.puntuacion).to.be.within(0, 100);
+          expect(d.version_formula).to.be.a("string");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

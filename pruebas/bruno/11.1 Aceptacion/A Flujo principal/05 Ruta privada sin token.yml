@@ -1,0 +1,22 @@
+info:
+  name: "05 Ruta privada sin token"
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("401 sin token", () => { expect(res.status).to.equal(401); expect(res.body.success).to.equal(false); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,27 @@
+info:
+  name: "15 Listado - mis reportes"
+  type: http
+  seq: 16
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes?mios=true&por_pagina=100"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const el = res.body.data.elementos.find(e => e.id_reporte === Number(bru.getEnvVar("id094")));
+        test("200", () => expect(res.status).to.equal(200));
+        test("aparece mi reporte", () => expect(el).to.not.be.undefined);
+        test("resuelto y como basura", () => { expect(el.estado).to.equal("resuelto"); expect(el.categoria.nombre).to.equal("basura"); expect(el.es_propio).to.equal(true); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

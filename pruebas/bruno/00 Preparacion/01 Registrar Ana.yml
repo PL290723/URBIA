@@ -1,0 +1,31 @@
+info:
+  name: "01 Registrar Ana"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/registro"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Ana",
+        "correo": "ana@test.mx",
+        "contrasena": "NuevaClave123"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Cuenta de prueba ficticia: ciudadana. 409 = ya existia (no es error).
+        test("201 o 409", () => expect([201, 409]).to.include(res.status));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

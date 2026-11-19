@@ -1,0 +1,24 @@
+info:
+  name: "03 Historial como otro ciudadano"
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idHist}}/historial"
+  auth:
+    type: bearer
+    token: "{{tokenOtro}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("403", () => expect(res.status).to.equal(403));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

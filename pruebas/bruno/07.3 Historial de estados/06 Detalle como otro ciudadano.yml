@@ -1,0 +1,25 @@
+info:
+  name: "06 Detalle como otro ciudadano"
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idHist}}"
+  auth:
+    type: bearer
+    token: "{{tokenOtro}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("vista pública sin historial", () => expect(res.body.data).to.not.have.property("historial"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

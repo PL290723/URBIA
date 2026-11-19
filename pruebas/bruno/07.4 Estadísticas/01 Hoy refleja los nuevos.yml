@@ -1,0 +1,50 @@
+info:
+  name: "01 Hoy refleja los nuevos"
+  type: http
+  seq: 7
+
+http:
+  method: GET
+  url: "{{baseUrl}}/estadisticas?desde={{hoyLocal}}&hasta={{hoyLocal}}"
+  params:
+    - name: desde
+      value: "{{hoyLocal}}"
+      type: query
+    - name: hasta
+      value: "{{hoyLocal}}"
+      type: query
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const base = JSON.parse(bru.getEnvVar("statsBase"));
+        test("200", () => expect(res.status).to.equal(200));
+        test("total +4", () => expect(d.total).to.equal(base.total + 4));
+        test("pendiente +3", () => expect((d.por_estado.find(x => x.estado === "pendiente") || { total: 0 }).total).to.equal(base.pendiente + 3));
+        test("en_revision +1", () => expect((d.por_estado.find(x => x.estado === "en_revision") || { total: 0 }).total).to.equal(base.en_revision + 1));
+        test("bache +3", () => expect((d.por_categoria.find(x => x.id_categoria === 1) || { total: 0 }).total).to.equal(base.bache + 3));
+        test("sin_categoria +1", () => expect((d.por_categoria.find(x => x.id_categoria === null) || { total: 0 }).total).to.equal(base.sin_cat + 1));
+        test("desglose de bache suma su total", () => {
+          const b = d.por_categoria.find(x => x.id_categoria === 1);
+          expect(Object.values(b.por_estado).reduce((s, n) => s + n, 0)).to.equal(b.total);
+          expect(Object.keys(b.por_estado)).to.have.members(["pendiente", "en_revision", "en_proceso", "resuelto"]);
+        });
+
+        const suma = (xs) => xs.reduce((s, x) => s + x.total, 0);
+        test("Σ por_estado = total", () => expect(suma(d.por_estado)).to.equal(d.total));
+        test("Σ por_categoria = total", () => expect(suma(d.por_categoria)).to.equal(d.total));
+        test("Σ por_periodo = total", () => expect(suma(d.por_periodo)).to.equal(d.total));
+        test("4 estados en orden", () => expect(d.por_estado.map(e => e.estado)).to.eql(["pendiente", "en_revision", "en_proceso", "resuelto"]));
+        test("sin_categoria al final", () => expect(d.por_categoria[d.por_categoria.length - 1].nombre).to.equal("sin_categoria"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

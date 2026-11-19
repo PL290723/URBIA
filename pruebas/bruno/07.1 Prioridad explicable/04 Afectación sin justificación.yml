@@ -1,0 +1,35 @@
+info:
+  name: "04 Afectación sin justificación"
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "afectacion_estimada": 3
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("VALIDACION_FALLIDA", () => expect(res.body.error.code).to.equal("VALIDACION_FALLIDA"));
+        test("pide justificación", () => {
+          const e = res.body.error.details.find(x => x.campo === "justificacion_afectacion");
+          expect(e.regla).to.equal("requerido");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

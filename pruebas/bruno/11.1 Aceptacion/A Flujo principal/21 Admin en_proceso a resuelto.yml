@@ -1,0 +1,32 @@
+info:
+  name: "21 Admin en_proceso a resuelto"
+  type: http
+  seq: 21
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id111}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "resuelto"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("en_proceso -> resuelto", () => { expect(res.body.data.estado_anterior).to.equal("en_proceso"); expect(res.body.data.estado_nuevo).to.equal("resuelto"); });
+        test("sin estados siguientes", () => expect(res.body.data.estados_siguientes).to.be.an("array").that.is.empty);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

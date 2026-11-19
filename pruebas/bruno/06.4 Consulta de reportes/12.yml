@@ -1,0 +1,23 @@
+info:
+  name: "12"
+  type: http
+  seq: 12
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idA}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: bru.setEnvVar("idFotoPropia", res.body.data.foto.id_archivo);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,32 @@
+info:
+  name: "08 Historial en el detalle"
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idEstado}}"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const h = d.historial;
+        test("200", () => expect(res.status).to.equal(200));
+        test("estado resuelto", () => expect(d.estado).to.equal("resuelto"));
+        test("4 registros", () => expect(h.length).to.equal(4));
+        test("creación sin anterior", () => { expect(h[0].estado_anterior).to.equal(null); expect(h[0].estado_nuevo).to.equal("pendiente"); });
+        test("ciclo completo en orden", () => expect(h.map(x => x.estado_nuevo)).to.eql(["pendiente", "en_revision", "en_proceso", "resuelto"]));
+        test("cada anterior = nuevo previo", () => { for (let i = 1; i < h.length; i++) expect(h[i].estado_anterior).to.equal(h[i - 1].estado_nuevo); });
+        test("fecha_actualizacion movida", () => expect(new Date(d.fecha_actualizacion) >= new Date(d.fecha_creacion)).to.equal(true));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,36 @@
+info:
+  name: "09 Sin categoría gravedad 4"
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrioSinCat}}/prioridad"
+  body:
+    type: json
+    data: |-
+      {
+        "gravedad_observable": 4
+      }
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const rec = d.factores.find(f => f.factor === "recurrencia_verificada");
+        test("201", () => expect(res.status).to.equal(201));
+        test("recurrencia no verificable", () => { expect(rec.disponible).to.equal(false); expect(rec.explicacion).to.include("No verificable"); });
+        test("cobertura 0.5", () => expect(d.cobertura).to.equal(0.5));
+        test("peso de gravedad repartido a 0.8", () => expect(d.factores.find(f => f.factor === "gravedad_observable").peso_efectivo).to.equal(0.8));
+        test("nivel asignado", () => expect(d.nivel).to.not.equal(null));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

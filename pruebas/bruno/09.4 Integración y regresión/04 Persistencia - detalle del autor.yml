@@ -1,0 +1,39 @@
+info:
+  name: "04 Persistencia - detalle del autor"
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id094}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200 y propio", () => { expect(res.status).to.equal(200); expect(d.es_propio).to.equal(true); });
+        test("misma ubicación exacta", () => {
+          expect(d.ubicacion.aproximada).to.equal(false);
+          expect(d.ubicacion.latitud).to.equal(Number(bru.getEnvVar("lat094")));
+          expect(d.ubicacion.longitud).to.equal(Number(bru.getEnvVar("lon094")));
+        });
+        test("mismo archivo y metadatos", () => {
+          expect(d.foto.id_archivo).to.equal(Number(bru.getEnvVar("idArchivo094")));
+          expect(d.foto.tamano).to.equal(Number(bru.getEnvVar("tamano094")));
+          expect(d.foto.mime).to.equal("image/jpeg");
+        });
+        test("historial con el evento de creación", () => {
+          expect(d.historial).to.have.length(1);
+          expect(d.historial[0].estado_nuevo).to.equal("pendiente");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

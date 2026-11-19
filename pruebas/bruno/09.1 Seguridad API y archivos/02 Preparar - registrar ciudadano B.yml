@@ -1,0 +1,43 @@
+info:
+  name: "02 Preparar - registrar ciudadano B"
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/registro"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Ciudadano B 09.1",
+        "correo": "{{correo091B}}",
+        "contrasena": "Segura091!"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Correo nuevo en cada corrida
+        bru.setEnvVar("correo091B", "ciudadanob.091." + Date.now() + "@ejemplo.com");
+    - type: after-response
+      code: |-
+        if (res.status === 201) {
+          bru.setEnvVar("token091B", res.body.data.token);
+        }
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        test("rol ciudadano", () => expect(res.body.data.usuario.rol).to.equal("ciudadano"));
+        test("no regresa el hash ni la contraseña", () => {
+          expect(res.body.data.usuario).to.not.have.property("hash_contrasena");
+          expect(JSON.stringify(res.body)).to.not.contain("Segura091!");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

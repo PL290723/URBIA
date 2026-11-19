@@ -1,0 +1,28 @@
+info:
+  name: "25 Ciudadano - reportes cercanos"
+  type: http
+  seq: 25
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idReporte091}}/cercanos"
+  auth:
+    type: bearer
+    token: "{{token091A}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("403", () => expect(res.status).to.equal(403));
+        test("PROHIBIDO", () => {
+          expect(res.body.success).to.equal(false);
+          expect(res.body.error.code).to.equal("PROHIBIDO");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

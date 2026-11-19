@@ -54,6 +54,12 @@ New-NetFirewallRule -DisplayName "URBIA API (feria)" -Direction Inbound -Protoco
 Get-NetFirewallRule -DisplayName "URBIA API (feria)" | Format-List DisplayName, Enabled, Profile, Action
 ```
 
+Si el frontend se sirve desde este equipo (`npm run preview`), permitir también el puerto 5173:
+
+```powershell
+New-NetFirewallRule -DisplayName "URBIA Frontend (feria)" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Allow -Profile Private
+```
+
 PostgreSQL del contenedor solo escucha en `127.0.0.1:5433` y la inferencia no publica
 puertos: ninguno de los dos es accesible desde la red.
 
@@ -62,7 +68,7 @@ puertos: ninguno de los dos es accesible desde la red.
 | Variable | Feria | Por qué |
 |---|---|---|
 | `JWT_SECRET` | uno nuevo | Los tokens de pruebas dejan de valer |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://<IP>:5173` | El navegador del celular abre el frontend por la IP |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://<IP>:5173` | Solo hace falta si el navegador llama a la API directo (`VITE_API_URL`); con el proxy de Vite del frontend (configuración por defecto) es el mismo origen |
 | `LOGIN_MAX_INTENTOS` | `50` | Límite compartido por todo el público (IP del proxy de Docker) |
 | `LOGIN_VENTANA` | `2m` | Si se llega al límite, el bloqueo dura poco |
 | `LOG_LEVEL` | `info` | Sin ruido de depuración |
@@ -115,6 +121,7 @@ docker compose up -d
 ```powershell
 docker compose stop
 Remove-NetFirewallRule -DisplayName "URBIA API (feria)"
+Remove-NetFirewallRule -DisplayName "URBIA Frontend (feria)"
 powercfg /change standby-timeout-ac 30
 ```
 

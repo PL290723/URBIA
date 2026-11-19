@@ -1,0 +1,7 @@
+info:
+  name: 11.1 Aceptacion
+  type: folder
+  seq: 23
+
+request:
+  auth: inherit

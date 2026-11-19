@@ -1,0 +1,7 @@
+info:
+  name: 09.4 Integración y regresión
+  type: folder
+  seq: 22
+
+request:
+  auth: inherit

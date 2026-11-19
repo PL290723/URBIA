@@ -1,0 +1,33 @@
+info:
+  name: "01 Login administrador"
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "correo": "juan@test.mx",
+        "contrasena": "NuevaClave123"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 200) bru.setEnvVar("tokenAdmin", res.body.data.token);
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("administrador", () => expect(res.body.data.usuario.rol).to.equal("administrador"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

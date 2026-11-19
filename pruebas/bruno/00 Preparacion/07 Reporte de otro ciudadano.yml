@@ -1,0 +1,57 @@
+info:
+  name: "07 Reporte de otro ciudadano"
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/basura_dos.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "12.5"
+      - name: id_categoria
+        type: text
+        value: "3"
+  auth:
+    type: bearer
+    token: "{{tokenOtro}}"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 201) {
+          bru.setEnvVar("idOtro", String(res.body.data.id_reporte));
+          bru.setEnvVar("idArchivo", String(res.body.data.foto.id_archivo));
+        }
+    - type: tests
+      code: |-
+        test("201 creado", () => expect(res.status).to.equal(201));
+        test("trae foto", () => expect(res.body.data.foto.id_archivo).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

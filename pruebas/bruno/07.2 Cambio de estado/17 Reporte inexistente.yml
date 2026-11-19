@@ -1,0 +1,28 @@
+info:
+  name: "17 Reporte inexistente"
+  type: http
+  seq: 19
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/999999/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "en_revision"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("404", () => expect(res.status).to.equal(404));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

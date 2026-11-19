@@ -1,0 +1,54 @@
+info:
+  name: "11 Timeout - Reporte"
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[IT 08.2] Timeout de inferencia"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "8.5"
+  headers:
+    - name: X-Request-ID
+      value: it082-bruno-timeout
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: reinicia la API con INFERENCE_GRPC_TIMEOUT=1ms (Python encendido). Después regrésalo a 10s.
+        const s = res.body.data.sugerencia;
+        test("201", () => expect(res.status).to.equal(201));
+        test("no_disponible por timeout", () => expect(s.estado).to.equal("no_disponible"));
+        test("el error quedó registrado", () => expect(s.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

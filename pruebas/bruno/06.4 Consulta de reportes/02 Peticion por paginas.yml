@@ -1,0 +1,32 @@
+info:
+  name: 02 Peticion por paginas
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes?pagina=1&por_pagina=2"
+  params:
+    - name: pagina
+      value: "1"
+      type: query
+    - name: por_pagina
+      value: "2"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("2 elementos", () => expect(res.body.data.elementos.length).to.be.at.most(2));
+        test("paginación", () => expect(res.body.data.paginacion.por_pagina).to.equal(2));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

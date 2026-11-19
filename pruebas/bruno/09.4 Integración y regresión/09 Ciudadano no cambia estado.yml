@@ -1,0 +1,31 @@
+info:
+  name: "09 Ciudadano no cambia estado"
+  type: http
+  seq: 10
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id094}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "en_revision"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("403", () => expect(res.status).to.equal(403));
+        test("PROHIBIDO", () => expect(res.body.error.code).to.equal("PROHIBIDO"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

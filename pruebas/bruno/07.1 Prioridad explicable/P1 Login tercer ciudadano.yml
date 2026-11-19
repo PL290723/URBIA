@@ -1,0 +1,30 @@
+info:
+  name: "P1 Login tercer ciudadano"
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "correo": "marta@test.mx",
+        "contrasena": "Marta2026!"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        if (res.status === 200) { bru.setEnvVar("tokenTercero", res.body.data.token); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

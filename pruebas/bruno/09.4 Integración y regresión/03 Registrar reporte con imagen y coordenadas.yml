@@ -1,0 +1,74 @@
+info:
+  name: "03 Registrar reporte con imagen y coordenadas"
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/bache.jpeg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.4] Bache frente a la escuela - regresi\u00f3n"
+      - name: latitud
+        type: text
+        value: "{{lat094}}"
+      - name: longitud
+        type: text
+        value: "{{lon094}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "6.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Punto aleatorio en Celaya para no chocar con corridas anteriores
+        const lat = (20.50 + Math.random() * 0.05).toFixed(6);
+        const lon = (-100.85 + Math.random() * 0.05).toFixed(6);
+        bru.setEnvVar("lat094", lat);
+        bru.setEnvVar("lon094", lon);
+    - type: after-response
+      code: |-
+        if (res.status === 201) {
+          const d = res.body.data;
+          bru.setEnvVar("id094", String(d.id_reporte));
+          bru.setEnvVar("idArchivo094", String(d.foto.id_archivo));
+          bru.setEnvVar("tamano094", String(d.foto.tamano));
+          bru.setEnvVar("idDeteccion094", String(d.sugerencia.id_deteccion));
+        }
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("201 con Location", () => { expect(res.status).to.equal(201); expect(res.getHeader("location")).to.equal("/api/v1/reportes/" + d.id_reporte); });
+        test("pendiente y sin categoría elegida", () => { expect(d.estado).to.equal("pendiente"); expect(d.categoria).to.equal(null); });
+        test("coordenadas exactas", () => {
+          expect(d.ubicacion.latitud).to.equal(Number(bru.getEnvVar("lat094")));
+          expect(d.ubicacion.longitud).to.equal(Number(bru.getEnvVar("lon094")));
+          expect(d.ubicacion.origen).to.equal("gps");
+          expect(d.ubicacion.precision_m).to.equal(6.5);
+        });
+        test("foto guardada", () => { expect(d.foto.mime).to.equal("image/jpeg"); expect(d.foto.tamano).to.be.above(0); });
+        test("la IA sugirió bache", () => { expect(d.sugerencia.estado).to.equal("sugerida"); expect(d.sugerencia.categoria.nombre).to.equal("bache"); });
+        test("detección guardada", () => expect(d.sugerencia.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

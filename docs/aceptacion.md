@@ -5,8 +5,9 @@ Comprueba que las funciones comprometidas del MVP funcionan **en el despliegue d
 
 - Entorno: `deployments/compose.yaml` (CPU), base creada desde cero, cuentas de
   [demostración](operacion.md#3-cuentas-de-prueba-no-productivas).
-- Evidencia: carpeta de Bruno `11.1 Aceptacion` (colección `local`), salidas de los comandos
-  y pruebas automáticas.
+- Evidencia: colección de Bruno [`pruebas/bruno/`](../pruebas/bruno/README.md), carpeta
+  `11.1 Aceptacion`; salidas de los comandos y pruebas automáticas en
+  [`docs/evidencias/v0.1.0-rc.1/`](evidencias/v0.1.0-rc.1/README.md).
 - Un criterio se acepta solo si **todas** sus verificaciones pasan.
 
 ## Procedimiento
@@ -88,8 +89,6 @@ la misma red `http://<IP>:8080/api/v1/health/live`.
 
 ## Registro de ejecución
 
-## Registro de ejecución
-
 | Campo | Valor |
 |---|---|
 | Fecha | 2026-11-18 |
@@ -97,6 +96,7 @@ la misma red `http://<IP>:8080/api/v1/health/live`.
 | Equipo | Acer Nitro AN515-58 (i5-12500H, 16 GB), Windows + Docker Desktop (WSL 2), inferencia en CPU |
 | `go test ./...` | ok: 13 paquetes con pruebas sin fallos (auth, clients, config, dominio, handlers, imagenes, middleware, repositories, response, router, services, storage); 6 sin archivos de prueba |
 | `pytest` | 225 passed, 1 skipped (enlaces simbólicos, no aplica en Windows) en 59 s; Python 3.11.9 |
+| Frontend | `npm run typecheck`, `npm run lint` y `npm run build` sin errores; tipos de la API sincronizados con `openapi.yaml` (`npm run gen:api` sin cambios) |
 | Despliegue desde cero | `down -v` + `up -d --build`: `db`, `api` e `inferencia` healthy; migraciones 00001-00009 aplicadas en 75 ms en total, versión 9, sin pendientes; PostGIS 3.6.4 sobre PostgreSQL 18 (GEOS 3.14.1, PROJ 9.8.1) |
 | Health inicial | `ok`; base de datos `activo` (0 ms), inferencia `activo` (4 ms); versión 0.1.0 |
 | Almacenamiento | Fotos originales en el volumen: `/app/storage/originales/2026/11/<id aleatorio de 26 caracteres>.jpg` |

@@ -1,0 +1,55 @@
+info:
+  name: 04 Solo foto
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/basura_dos.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+        disabled: true
+      - name: latitud
+        type: text
+        value: "20.5235"
+        disabled: true
+      - name: longitud
+        type: text
+        value: "-100.8157"
+        disabled: true
+      - name: origen_ubicacion
+        type: text
+        value: gps
+        disabled: true
+      - name: precision_m
+        type: text
+        value: "12.5"
+        disabled: true
+      - name: id_categoria
+        type: text
+        value: "3"
+        disabled: true
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: test("400", () => expect(res.status).to.equal(400)); test("código", () => expect(res.body.error.code).to.equal("VALIDACION_FALLIDA"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

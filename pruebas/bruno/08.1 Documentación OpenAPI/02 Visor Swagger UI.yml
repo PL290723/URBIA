@@ -1,0 +1,25 @@
+info:
+  name: "02 Visor Swagger UI"
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/docs"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const html = String(res.body);
+        test("200", () => expect(res.status).to.equal(200));
+        test("Content-Type HTML", () => expect(res.getHeader("content-type")).to.contain("text/html"));
+        test("carga Swagger UI", () => expect(html).to.contain("swagger-ui"));
+        test("apunta a la especificación", () => expect(html).to.contain("/api/v1/openapi.yaml"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

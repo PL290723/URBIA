@@ -1,0 +1,7 @@
+info:
+  name: 06.5 Reportes cercanos
+  type: folder
+  seq: 13
+
+request:
+  auth: inherit

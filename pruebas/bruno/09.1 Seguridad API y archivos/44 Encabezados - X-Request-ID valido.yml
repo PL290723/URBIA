@@ -1,0 +1,24 @@
+info:
+  name: "44 Encabezados - X-Request-ID valido"
+  type: http
+  seq: 44
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health/live"
+  headers:
+    - name: X-Request-ID
+      value: "prueba-091.ok_1"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("se reutiliza", () => expect(res.getHeader("x-request-id")).to.equal("prueba-091.ok_1"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

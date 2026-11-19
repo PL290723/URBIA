@@ -1,0 +1,56 @@
+info:
+  name: 02 Foto de basura con id_categoria erroneo
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/basura_tres.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "12.5"
+      - name: id_categoria
+        type: text
+        value: "1"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        test("sugerida", () => expect(res.body.data.sugerencia.estado).to.equal("sugerida"));
+        test("basura", () => expect(res.body.data.sugerencia.categoria.nombre).to.equal("basura"));
+        test("trae modelo", () => expect(res.body.data.sugerencia.version_modelo).to.equal("1.0.0"));
+        test("guardó detección", () => expect(res.body.data.sugerencia.id_deteccion).to.be.a("number"));
+        test("no sustituye", () => expect(res.body.data.categoria.nombre).to.equal("bache"));
+        test("no coincide", () => expect(res.body.data.sugerencia.coincide_con_categoria).to.equal(false));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

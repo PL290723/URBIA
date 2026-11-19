@@ -1,0 +1,36 @@
+info:
+  name: "07 Corregir categoria a basura"
+  type: http
+  seq: 8
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{id094}}/categoria"
+  body:
+    type: json
+    data: |-
+      {
+        "id_categoria": 3
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("queda basura, marcada como corrección", () => { expect(d.categoria.nombre).to.equal("basura"); expect(d.origen).to.equal("corregida"); });
+        test("conserva lo que sugirió la IA", () => {
+          expect(d.categoria_sugerida.nombre).to.equal("bache");
+          expect(d.id_deteccion).to.equal(Number(bru.getEnvVar("idDeteccion094")));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

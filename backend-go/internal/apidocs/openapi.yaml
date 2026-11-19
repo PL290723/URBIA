@@ -8,6 +8,9 @@ info:
     foto y ubicación, consulta la sugerencia de categoría al servicio de IA (gRPC) y expone
     las herramientas del panel administrativo.
 
+    **Versión del contrato:** 1.0.0 (rutas `/api/v1`). La versión del software que responde
+    la reporta `GET /api/v1/health` en `version` (por ejemplo `0.1.0`).
+
     ## Formato de respuesta
     **Todas** las respuestas JSON usan el mismo sobre:
 

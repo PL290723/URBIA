@@ -1,0 +1,25 @@
+info:
+  name: "12 Id inválido"
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/abc/prioridad"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("SOLICITUD_INVALIDA", () => expect(res.body.error.code).to.equal("SOLICITUD_INVALIDA"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

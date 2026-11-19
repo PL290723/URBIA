@@ -1,0 +1,27 @@
+info:
+  name: "11 Detalle del autor"
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id111}}"
+  auth:
+    type: bearer
+    token: "{{token111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200 y propio", () => { expect(res.status).to.equal(200); expect(d.es_propio).to.equal(true); });
+        test("ubicacion exacta para el autor", () => expect(d.ubicacion.aproximada).to.equal(false));
+        test("con foto e historial", () => { expect(d.foto.url).to.equal("/api/v1/archivos/" + bru.getEnvVar("idArchivo111")); expect(d.historial).to.be.an("array").that.is.not.empty; });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
