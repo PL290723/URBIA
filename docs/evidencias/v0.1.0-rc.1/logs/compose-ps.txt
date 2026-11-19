@@ -1,0 +1,4 @@
+﻿NAME                 IMAGE                    COMMAND                  SERVICE      CREATED        STATUS                   PORTS
+urbia-api-1          urbia-api:0.1.0          "/app/urbia-api"         api          21 hours ago   Up 2 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+urbia-db-1           postgis/postgis:18-3.6   "docker-entrypoint.sΓÇª"   db           27 hours ago   Up 2 minutes (healthy)   127.0.0.1:5433->5432/tcp
+urbia-inferencia-1   urbia-inferencia:0.1.0   "python -m scripts.sΓÇª"   inferencia   27 hours ago   Up 2 minutes (healthy)   8000/tcp, 50051/tcp

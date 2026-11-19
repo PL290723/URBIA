@@ -1,0 +1,19 @@
+﻿?   	github.com/PL290723/URBIA/backend-go/cmd/api	[no test files]
+?   	github.com/PL290723/URBIA/backend-go/cmd/probar-inferencia	[no test files]
+?   	github.com/PL290723/URBIA/backend-go/internal/apidocs	[no test files]
+?   	github.com/PL290723/URBIA/backend-go/internal/app	[no test files]
+ok  	github.com/PL290723/URBIA/backend-go/internal/auth	2.647s
+ok  	github.com/PL290723/URBIA/backend-go/internal/clients	0.649s
+ok  	github.com/PL290723/URBIA/backend-go/internal/config	0.623s
+?   	github.com/PL290723/URBIA/backend-go/internal/db	[no test files]
+ok  	github.com/PL290723/URBIA/backend-go/internal/dominio	0.623s
+?   	github.com/PL290723/URBIA/backend-go/internal/gen/inferenciav1	[no test files]
+ok  	github.com/PL290723/URBIA/backend-go/internal/handlers	3.216s
+ok  	github.com/PL290723/URBIA/backend-go/internal/imagenes	1.482s
+ok  	github.com/PL290723/URBIA/backend-go/internal/middleware	0.446s
+?   	github.com/PL290723/URBIA/backend-go/internal/models	[no test files]
+ok  	github.com/PL290723/URBIA/backend-go/internal/repositories	1.200s
+ok  	github.com/PL290723/URBIA/backend-go/internal/response	0.356s
+ok  	github.com/PL290723/URBIA/backend-go/internal/router	0.651s
+ok  	github.com/PL290723/URBIA/backend-go/internal/services	4.050s
+ok  	github.com/PL290723/URBIA/backend-go/internal/storage	0.663s
