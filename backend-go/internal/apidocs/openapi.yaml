@@ -1,0 +1,1804 @@
+openapi: 3.1.0
+info:
+  title: URBIA API
+  version: 1.0.0
+  summary: API REST para reportes ciudadanos de problemas urbanos.
+  description: |
+    API principal de URBIA (Go + Gin + PostgreSQL/PostGIS). Recibe reportes ciudadanos con
+    foto y ubicación, consulta la sugerencia de categoría al servicio de IA (gRPC) y expone
+    las herramientas del panel administrativo.
+
+    **Versión del contrato:** 1.0.0 (rutas `/api/v1`). La versión del software que responde
+    la reporta `GET /api/v1/health` en `version` (por ejemplo `0.1.0`).
+
+    ## Formato de respuesta
+    **Todas** las respuestas JSON usan el mismo sobre:
+
+    - Éxito: `{"success": true, "data": { ... }}`
+    - Error: `{"success": false, "error": {"code": "...", "message": "...", "details": ...}}`
+
+    `code` es estable (el frontend puede decidir con él); `message` es texto para el usuario.
+    `details` solo aparece en errores de validación (lista de campos) y en algunos 409.
+    Las excepciones son `GET /api/v1/archivos/{id}` (devuelve la imagen) y los 204 sin cuerpo.
+
+    ## Autenticación
+    JWT HS256 en el encabezado `Authorization: Bearer <token>`. El token se obtiene en
+    `POST /api/v1/auth/registro` o `POST /api/v1/auth/login` y caduca según `JWT_TTL`.
+
+    | Rol | Puede |
+    |---|---|
+    | `ciudadano` | crear reportes, subir fotos y confirmar la categoría de **sus** reportes, consultar reportes (los ajenos con datos recortados) |
+    | `administrador` | todo lo de consulta con datos completos, cambiar estados, calcular prioridad, revisar duplicados, ver estadísticas y usuarios |
+
+    Cada operación indica en **"Permisos"** quién puede usarla. Sin token o con token inválido
+    se responde **401**; con token válido pero rol sin permiso, **403**. Para no revelar
+    datos ajenos, algunos recursos de otro usuario responden **404** en lugar de 403.
+
+    ## Códigos HTTP
+    | HTTP | `code` | Cuándo |
+    |---|---|---|
+    | 200 | — | Consulta o actualización correcta |
+    | 201 | — | Recurso creado (reporte, usuario, archivo, cálculo de prioridad) |
+    | 204 | — | Eliminado, sin cuerpo |
+    | 400 | `SOLICITUD_INVALIDA` | JSON mal formado, multipart ausente, id no numérico |
+    | 400 | `VALIDACION_FALLIDA` | Campos o query params inválidos (`details` lista los campos) |
+    | 401 | `NO_AUTORIZADO` | Falta el token, es inválido o expiró; credenciales incorrectas |
+    | 403 | `PROHIBIDO` | El rol no tiene permiso para la operación |
+    | 404 | `NO_ENCONTRADO` | El recurso no existe o no es visible para el usuario; ruta inexistente |
+    | 405 | `METODO_NO_PERMITIDO` | La ruta existe pero no con ese método |
+    | 409 | `CONFLICTO` | La operación choca con el estado actual (correo repetido, transición no permitida…) |
+    | 413 | `ARCHIVO_DEMASIADO_GRANDE` | Imagen de más de 10 MB |
+    | 413 | `CUERPO_DEMASIADO_GRANDE` | Cuerpo JSON de más de 64 KiB (aplica a cualquier ruta) |
+    | 415 | `FORMATO_NO_PERMITIDO` | La imagen no es JPEG, PNG ni WebP (se revisa el contenido real) |
+    | 422 | `IMAGEN_INVALIDA` | Imagen dañada o con dimensiones fuera de rango |
+    | 429 | `DEMASIADAS_SOLICITUDES` | Demasiados logins fallidos desde la misma IP (ver `Retry-After`) |
+    | 500 | `ERROR_INTERNO` | Error inesperado (el detalle solo queda en los logs) |
+    | 503 | `SERVICIO_NO_DISPONIBLE` | Health check: la base de datos no responde |
+
+    ## Trazabilidad
+    Toda respuesta incluye `X-Request-ID`. Si el cliente lo envía (1 a 64 caracteres, solo
+    letras, dígitos, `.`, `_` y `-`) se reutiliza; si no, se genera. Sirve para buscar la
+    petición en los logs del servidor.
+
+    ## Seguridad
+    - **CORS:** solo los orígenes de `CORS_ALLOWED_ORIGINS` reciben
+      `Access-Control-Allow-Origin` (nunca `*`, sin credenciales/cookies). Un preflight
+      `OPTIONS` de otro origen responde **403**.
+    - **Límites:** cuerpos JSON ≤ 64 KiB; fotos ≤ 10 MB y solo JPEG/PNG/WebP por contenido real.
+    - **Login:** tras `LOGIN_MAX_INTENTOS` fallos por IP en `LOGIN_VENTANA`, **429** con `Retry-After`.
+    - **Encabezados:** toda respuesta lleva `X-Content-Type-Options: nosniff`,
+      `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y, salvo el visor, una CSP
+      `default-src 'none'`. Por defecto `Cache-Control: no-store`.
+    ## Fechas
+    Las fechas de respuesta van en RFC 3339 (UTC). Los filtros `desde`/`hasta` usan
+    `AAAA-MM-DD` en hora de Celaya (`America/Mexico_City`) y ambos días se incluyen.
+  contact:
+    name: Equipo URBIA — TecNM Celaya
+    url: https://github.com/PL290723/URBIA
+servers:
+  - url: http://localhost:8080
+    description: Desarrollo local
+tags:
+  - name: Salud
+    description: Estado del proceso y de sus dependencias.
+  - name: Autenticación
+    description: Registro, inicio de sesión y perfil.
+  - name: Reportes
+    description: Creación y consulta de reportes ciudadanos.
+  - name: Archivos
+    description: Fotografías de los reportes (nunca se sirven como estáticos).
+  - name: Clasificación
+    description: Confirmación de la categoría sugerida por la IA.
+  - name: Administración
+    description: Herramientas del panel administrativo.
+  - name: Documentación
+    description: Esta especificación y su visor.
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ------------------------------------------------------------------ Salud
+  /api/v1/health:
+    get:
+      tags: [Salud]
+      operationId: saludCompleta
+      summary: Estado completo (readiness)
+      description: |
+        Revisa PostgreSQL y el servicio de inferencia. Responde 200 con `ok` o `degradado`
+        (la API sirve aunque la IA no responda) y 503 con `caido` si la base de datos no responde.
+        Nunca expone URLs, hosts ni mensajes internos.
+
+        **Permisos:** público.
+      security: []
+      responses:
+        '200':
+          description: La API puede atender solicitudes.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/HealthStatus' }
+              examples:
+                ok:
+                  summary: Todo responde
+                  value:
+                    success: true
+                    data:
+                      status: ok
+                      version: dev
+                      uptime_segundos: 3600
+                      timestamp: '2026-11-17T16:00:00Z'
+                      dependencias:
+                        database: { estado: activo, latencia_ms: 2 }
+                        inferencia: { estado: activo, latencia_ms: 8, ultima_verificacion: '2026-11-17T15:59:50Z' }
+                degradado:
+                  summary: La IA no responde
+                  value:
+                    success: true
+                    data:
+                      status: degradado
+                      version: dev
+                      uptime_segundos: 3600
+                      timestamp: '2026-11-17T16:00:00Z'
+                      dependencias:
+                        database: { estado: activo, latencia_ms: 2 }
+                        inferencia: { estado: caido, latencia_ms: 2000, ultima_verificacion: '2026-11-17T15:59:50Z' }
+        '503':
+          description: La base de datos no responde (`status = caido`). Incluye `data` con el detalle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, error]
+                properties:
+                  success: { type: boolean, const: false }
+                  data: { $ref: '#/components/schemas/HealthStatus' }
+                  error: { $ref: '#/components/schemas/ErrorDetalle' }
+              example:
+                success: false
+                data:
+                  status: caido
+                  version: dev
+                  uptime_segundos: 3600
+                  timestamp: '2026-11-17T16:00:00Z'
+                  dependencias:
+                    database: { estado: caido, latencia_ms: 1000 }
+                    inferencia: { estado: activo, latencia_ms: 8 }
+                error:
+                  code: SERVICIO_NO_DISPONIBLE
+                  message: 'La API no puede atender solicitudes: la base de datos no responde'
+  /api/v1/health/live:
+    get:
+      tags: [Salud]
+      operationId: saludProceso
+      summary: El proceso está vivo (liveness)
+      description: |
+        No consulta dependencias; siempre 200 mientras el proceso responda.
+
+        **Permisos:** público.
+      security: []
+      responses:
+        '200':
+          description: Proceso vivo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status: { type: string, const: ok }
+              example:
+                success: true
+                data: { status: ok }
+  /api/health:
+    get:
+      tags: [Salud]
+      operationId: saludAlias
+      summary: Alias de /api/v1/health
+      deprecated: true
+      description: |
+        Se conserva por compatibilidad (HU 01.2 / 03.3). Usa `/api/v1/health`.
+
+        **Permisos:** público.
+      security: []
+      responses:
+        '200':
+          description: Igual que `GET /api/v1/health`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/HealthStatus' }
+        '503':
+          description: Igual que `GET /api/v1/health`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+
+  # ---------------------------------------------------------- Autenticación
+  /api/v1/auth/registro:
+    post:
+      tags: [Autenticación]
+      operationId: registrarUsuario
+      summary: Crear una cuenta de ciudadano
+      description: |
+        Crea un usuario con rol `ciudadano` y devuelve un token listo para usar.
+        Los administradores no se registran por la API.
+
+        **Permisos:** público.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistroRequest' }
+            example:
+              nombre: Ana López
+              correo: ana@ejemplo.com
+              contrasena: Secreta123
+      responses:
+        '201':
+          description: Usuario creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/AuthResponse' }
+              example:
+                success: true
+                data:
+                  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  tipo_token: Bearer
+                  expira_en: '2026-11-18T16:00:00Z'
+                  usuario:
+                    id_usuario: 7
+                    nombre: Ana López
+                    correo: ana@ejemplo.com
+                    rol: ciudadano
+                    fecha_registro: '2026-11-17T16:00:00Z'
+                    fecha_actualizacion: '2026-11-17T16:00:00Z'
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '409':
+          description: El correo ya está registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error: { code: CONFLICTO, message: El correo ya está registrado }
+        '413': { $ref: '#/components/responses/CuerpoDemasiadoGrande' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/auth/login:
+    post:
+      tags: [Autenticación]
+      operationId: iniciarSesion
+      summary: Iniciar sesión
+      description: |
+        Devuelve un JWT. Correo inexistente y contraseña incorrecta responden igual (401)
+        para no revelar qué correos existen.
+
+        **Permisos:** público.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example:
+              correo: ana@ejemplo.com
+              contrasena: Secreta123
+      responses:
+        '200':
+          description: Sesión iniciada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401':
+          description: Correo o contraseña incorrectos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error: { code: NO_AUTORIZADO, message: Correo o contraseña incorrectos }
+        '413': { $ref: '#/components/responses/CuerpoDemasiadoGrande' }
+        '429':
+          description: |
+            Demasiados intentos fallidos desde esta IP (`LOGIN_MAX_INTENTOS` en `LOGIN_VENTANA`).
+            Mientras dure el bloqueo se rechaza todo login de esa IP, aun con la contraseña correcta.
+          headers:
+            Retry-After:
+              description: Segundos que faltan para volver a intentar.
+              schema: { type: integer, minimum: 1, example: 287 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error:
+                  code: DEMASIADAS_SOLICITUDES
+                  message: Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/auth/perfil:
+    get:
+      tags: [Autenticación]
+      operationId: obtenerPerfil
+      summary: Perfil del usuario del token
+      description: |
+        **Permisos:** cualquier usuario autenticado.
+      responses:
+        '200':
+          description: Datos del usuario.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  # --------------------------------------------------------------- Reportes
+  /api/v1/reportes:
+    post:
+      tags: [Reportes]
+      operationId: crearReporte
+      summary: Crear un reporte con foto y ubicación
+      description: |
+        Se envía como `multipart/form-data`. La foto se valida por su contenido real
+        (el nombre, la extensión y el `Content-Type` del cliente se ignoran), se le quitan
+        los metadatos EXIF y se guarda fuera de cualquier carpeta pública.
+
+        Después se pide a la IA una **sugerencia** de categoría; si la IA falla o no está
+        configurada, el reporte se guarda igual con `sugerencia.estado = no_disponible`.
+        Los errores de validación se devuelven **todos juntos** en `details`.
+
+        La respuesta incluye el encabezado `Location` con la URL del reporte.
+
+        **Permisos:** solo `ciudadano`. El autor sale del token, nunca del formulario.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/NuevoReporteForm' }
+            encoding:
+              foto:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '201':
+          description: Reporte creado.
+          headers:
+            Location:
+              description: Ruta del reporte creado.
+              schema: { type: string, example: /api/v1/reportes/12 }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Reporte' }
+              example:
+                success: true
+                data:
+                  id_reporte: 12
+                  estado: pendiente
+                  prioridad: media
+                  descripcion: Bache profundo frente a la escuela
+                  categoria: null
+                  origen_categoria: null
+                  ubicacion: { latitud: 20.52345, longitud: -100.81567, origen: gps, precision_m: 8.5 }
+                  foto:
+                    id_archivo: 31
+                    id_reporte: 12
+                    tipo: imagen
+                    variante: original
+                    mime: image/jpeg
+                    tamano: 482113
+                    fecha_subida: '2026-11-17T16:00:00Z'
+                  sugerencia:
+                    estado: sugerida
+                    categoria: { id_categoria: 1, nombre: bache }
+                    confianza: 0.91
+                    coincide_con_categoria: null
+                    modelo: yolo11n-urbia
+                    version_modelo: '1.0.0'
+                    id_deteccion: 5
+                  fecha_creacion: '2026-11-17T16:00:00Z'
+        '400':
+          description: |
+            `VALIDACION_FALLIDA` con la lista de campos inválidos, o `SOLICITUD_INVALIDA` si
+            el cuerpo no es multipart o el archivo está vacío.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              examples:
+                validacion:
+                  summary: Varios campos inválidos
+                  value:
+                    success: false
+                    error:
+                      code: VALIDACION_FALLIDA
+                      message: Los datos enviados no son válidos
+                      details:
+                        - { campo: descripcion, regla: longitud, mensaje: La descripción debe tener entre 10 y 1000 caracteres }
+                        - { campo: precision_m, regla: requerido, mensaje: Con ubicación por GPS se requiere la precisión en metros }
+                        - { campo: foto, regla: requerido, mensaje: "Adjunta una fotografía del problema en el campo 'foto'" }
+                noMultipart:
+                  summary: No es multipart
+                  value:
+                    success: false
+                    error: { code: SOLICITUD_INVALIDA, message: Envía el reporte como multipart/form-data }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '413': { $ref: '#/components/responses/ArchivoDemasiadoGrande' }
+        '415': { $ref: '#/components/responses/FormatoNoPermitido' }
+        '422': { $ref: '#/components/responses/ImagenInvalida' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+    get:
+      tags: [Reportes]
+      operationId: listarReportes
+      summary: Listado paginado de reportes (mapa y lista)
+      description: |
+        Orden: más recientes primero. Lo que ve cada quién:
+
+        | Dato | Reporte ajeno | Reporte propio | Administrador |
+        |---|---|---|---|
+        | id, estado, categoría, descripción, fecha | ✔ | ✔ | ✔ |
+        | Ubicación | aproximada (~110 m) | exacta | exacta |
+        | `id_foto` | ✖ | ✔ | ✔ |
+        | `administrativo` | ✖ | ✖ | ✔ |
+
+        Los campos no permitidos **no aparecen** en el JSON. Con `bbox`, a los ciudadanos
+        se les agranda el rectángulo a la cuadrícula de 3 decimales.
+
+        **Permisos:** cualquier usuario autenticado.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+        - name: estado
+          in: query
+          description: Uno o varios estados separados por coma.
+          schema: { type: string, example: 'pendiente,en_revision' }
+        - name: id_categoria
+          in: query
+          schema: { type: integer, minimum: 1, example: 3 }
+        - $ref: '#/components/parameters/Desde'
+        - $ref: '#/components/parameters/Hasta'
+        - name: bbox
+          in: query
+          description: Área visible del mapa `min_lon,min_lat,max_lon,max_lat` (orden de Leaflet).
+          schema: { type: string, example: '-100.85,20.50,-100.78,20.55' }
+        - name: mios
+          in: query
+          description: '`true` = solo los reportes del usuario del token.'
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Página de reportes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/ListadoReportes' }
+              example:
+                success: true
+                data:
+                  elementos:
+                    - id_reporte: 12
+                      estado: pendiente
+                      categoria: { id_categoria: 3, nombre: basura }
+                      descripcion: Basura acumulada en la esquina
+                      ubicacion: { latitud: 20.524, longitud: -100.816, aproximada: true }
+                      fecha_creacion: '2026-11-16T16:00:00Z'
+                      es_propio: false
+                  paginacion: { pagina: 1, por_pagina: 20, total: 1, total_paginas: 1 }
+        '400': { $ref: '#/components/responses/ValidacionFallida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/reportes/{id}:
+    get:
+      tags: [Reportes]
+      operationId: detalleReporte
+      summary: Detalle de un reporte
+      description: |
+        Misma política de visibilidad que el listado. El autor y el administrador además
+        ven la foto (`foto.url`), la sugerencia de la IA y el historial; el administrador
+        también ve `administrativo` con la última detección de la IA.
+
+        **Permisos:** cualquier usuario autenticado.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      responses:
+        '200':
+          description: Detalle del reporte.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/ReporteDetalle' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/reportes/{id}/historial:
+    get:
+      tags: [Reportes]
+      operationId: historialReporte
+      summary: Historial de estados (solo lectura)
+      description: |
+        Eventos en orden cronológico. El primero es la creación (`estado_anterior: null`).
+        El administrador ve id y nombre de quién hizo cada cambio; el autor solo ve el rol.
+        El historial no se puede modificar: `PUT`, `PATCH` y `DELETE` responden 405.
+
+        **Permisos:** el autor del reporte o un `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      responses:
+        '200':
+          description: Historial del reporte.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/HistorialReporte' }
+              example:
+                success: true
+                data:
+                  id_reporte: 12
+                  estado_actual: en_revision
+                  total: 2
+                  solo_lectura: true
+                  eventos:
+                    - id_historial_estado: 40
+                      tipo: creacion
+                      estado_anterior: null
+                      estado_nuevo: pendiente
+                      fecha: '2026-11-16T16:00:00Z'
+                      actor: { rol: ciudadano }
+                    - id_historial_estado: 41
+                      tipo: cambio_estado
+                      estado_anterior: pendiente
+                      estado_nuevo: en_revision
+                      fecha: '2026-11-17T10:00:00Z'
+                      actor: { rol: administrador }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  # --------------------------------------------------------------- Archivos
+  /api/v1/reportes/{id}/archivos:
+    post:
+      tags: [Archivos]
+      operationId: subirFoto
+      summary: Subir una foto adicional a un reporte
+      description: |
+        `multipart/form-data` con el campo `foto`. Mismas validaciones que al crear el reporte.
+
+        **Permisos:** el autor del reporte o un `administrador`. Si el reporte es ajeno se
+        responde 404 (no se revela que existe).
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [foto]
+              properties:
+                foto:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG o WebP; máx. 10 MB; 200 a 8000 px por lado; máx. 25 MP.
+            encoding:
+              foto:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '201':
+          description: Foto guardada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Archivo' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '413': { $ref: '#/components/responses/ArchivoDemasiadoGrande' }
+        '415': { $ref: '#/components/responses/FormatoNoPermitido' }
+        '422': { $ref: '#/components/responses/ImagenInvalida' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/archivos/{id}:
+    get:
+      tags: [Archivos]
+      operationId: descargarFoto
+      summary: Descargar una foto
+      description: |
+        Devuelve la imagen con `Cache-Control: private, no-store` y
+        `X-Content-Type-Options: nosniff`. Soporta `Range` y `If-Modified-Since`.
+
+        **Permisos:** el autor del reporte o un `administrador`; para cualquier otro 404.
+      parameters:
+        - $ref: '#/components/parameters/IDArchivo'
+      responses:
+        '200':
+          description: La imagen.
+          headers:
+            Content-Disposition:
+              schema: { type: string, example: 'inline; filename="urbia-31.jpg"' }
+            Cache-Control:
+              schema: { type: string, example: 'private, no-store' }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+    delete:
+      tags: [Archivos]
+      operationId: eliminarFoto
+      summary: Eliminar una foto
+      description: |
+        Borra el registro y después el archivo en disco.
+
+        **Permisos:** el autor del reporte o un `administrador`; para cualquier otro 404.
+      parameters:
+        - $ref: '#/components/parameters/IDArchivo'
+      responses:
+        '204':
+          description: Eliminada (sin cuerpo).
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  # ---------------------------------------------------------- Clasificación
+  /api/v1/reportes/{id}/categoria:
+    put:
+      tags: [Clasificación]
+      operationId: confirmarCategoria
+      summary: Confirmar o corregir la categoría del reporte
+      description: |
+        El ciudadano acepta la categoría sugerida por la IA (`origen = sugerida`), elige otra
+        (`corregida`) o la elige sin sugerencia (`manual`). Solo mientras el reporte siga
+        `pendiente`; después responde 409.
+
+        **Permisos:** solo `ciudadano` y solo sobre **sus** reportes (ajenos → 404).
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmarCategoriaRequest' }
+            example: { id_categoria: 1 }
+      responses:
+        '200':
+          description: Categoría confirmada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Clasificacion' }
+              example:
+                success: true
+                data:
+                  id_clasificacion: 9
+                  id_reporte: 12
+                  categoria: { id_categoria: 1, nombre: bache }
+                  categoria_anterior: null
+                  categoria_sugerida: { id_categoria: 1, nombre: bache }
+                  id_deteccion: 5
+                  origen: sugerida
+                  fecha: '2026-11-17T16:05:00Z'
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: El reporte ya no está pendiente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error: { code: CONFLICTO, message: El reporte ya está en revisión; su categoría ya no se puede cambiar }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  # --------------------------------------------------------- Administración
+  /api/v1/admin/usuarios:
+    get:
+      tags: [Administración]
+      operationId: listarUsuarios
+      summary: Listar usuarios
+      description: |
+        **Permisos:** solo `administrador`.
+      responses:
+        '200':
+          description: Todos los usuarios (nunca incluye el hash de la contraseña).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/reportes/{id}/estado:
+    patch:
+      tags: [Administración]
+      operationId: cambiarEstado
+      summary: Avanzar el estado de un reporte
+      description: |
+        Transiciones permitidas (no se puede saltar ni regresar):
+        `pendiente → en_revision → en_proceso → resuelto`. `resuelto` es final.
+        Cada cambio queda en el historial con el administrador que lo hizo.
+
+        **Permisos:** solo `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CambiarEstadoRequest' }
+            example: { estado: en_revision }
+      responses:
+        '200':
+          description: Estado cambiado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/CambioEstado' }
+              example:
+                success: true
+                data:
+                  id_reporte: 12
+                  estado_anterior: pendiente
+                  estado_nuevo: en_revision
+                  id_historial_estado: 41
+                  cambiado_por: 1
+                  fecha: '2026-11-17T10:00:00Z'
+                  fecha_actualizacion: '2026-11-17T10:00:00Z'
+                  estados_siguientes: [en_proceso]
+        '400': { $ref: '#/components/responses/ValidacionFallida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: Transición no permitida. `details` explica a qué estados sí se puede pasar.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error:
+                  code: CONFLICTO
+                  message: 'No se puede pasar de pendiente a resuelto; desde pendiente solo se permite: en_revision'
+                  details:
+                    estado_actual: pendiente
+                    estado_solicitado: resuelto
+                    estados_permitidos: [en_revision]
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/reportes/{id}/prioridad:
+    post:
+      tags: [Administración]
+      operationId: calcularPrioridad
+      summary: Calcular la prioridad explicable
+      description: |
+        Fórmula provisional (`v1-provisional`):
+        `puntuación = 100 · Σ(peso·valor) / Σ(pesos con dato)` con gravedad (0.40),
+        afectación (0.30), recurrencia verificada con PostGIS (0.20) y antigüedad (0.10).
+        Si menos del 50 % de la fórmula tiene datos, `nivel` queda en `null` y no se asigna.
+
+        El cuerpo es **opcional**: sin cuerpo se recalcula con la evaluación anterior.
+        Cada cálculo se guarda (201) aunque no cambie la prioridad del reporte.
+
+        **Permisos:** solo `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalcularPrioridadRequest' }
+            example:
+              gravedad_observable: 4
+              afectacion_estimada: 3
+              justificacion_afectacion: Paso diario de alumnos hacia la escuela
+      responses:
+        '201':
+          description: Cálculo registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/CalculoPrioridad' }
+        '400': { $ref: '#/components/responses/ValidacionFallida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: El reporte ya está resuelto.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+              example:
+                success: false
+                error: { code: CONFLICTO, message: El reporte ya está resuelto; no necesita prioridad }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+    get:
+      tags: [Administración]
+      operationId: consultarPrioridad
+      summary: Consultar la prioridad y su vigencia
+      description: |
+        Devuelve la prioridad actual del reporte, el último cálculo (o `null`) y si quedó
+        desactualizado (cambió la categoría, aparecieron recurrencias, pasó el tiempo…).
+
+        **Permisos:** solo `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+      responses:
+        '200':
+          description: Prioridad del reporte.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/ConsultaPrioridad' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/reportes/{id}/cercanos:
+    get:
+      tags: [Administración]
+      operationId: buscarCercanos
+      summary: Posibles duplicados cercanos
+      description: |
+        Busca con PostGIS reportes dentro de un radio y una ventana de tiempo, y los ordena
+        por una puntuación (distancia 0.50, categoría 0.35, tiempo 0.15). Es solo una
+        **sugerencia interna**: nada se fusiona ni se modifica.
+
+        **Permisos:** solo `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/IDReporte'
+        - name: radio_m
+          in: query
+          description: Radio en metros (por defecto `DUPLICADOS_RADIO_M`, 50).
+          schema: { type: integer, minimum: 1, maximum: 1000 }
+        - name: ventana_dias
+          in: query
+          description: Ventana de tiempo en días (por defecto `DUPLICADOS_VENTANA_DIAS`, 30).
+          schema: { type: integer, minimum: 1, maximum: 365 }
+        - name: limite
+          in: query
+          description: Máximo de coincidencias (por defecto 20).
+          schema: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        '200':
+          description: Coincidencias ordenadas por puntuación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/ReportesCercanos' }
+        '400': { $ref: '#/components/responses/ValidacionFallida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+  /api/v1/estadisticas:
+    get:
+      tags: [Administración]
+      operationId: obtenerEstadisticas
+      summary: Estadísticas del panel administrativo
+      description: |
+        Solo agregados: nunca ids de usuario, nombres, correos, descripciones ni coordenadas
+        exactas. Sin fechas se usan los últimos 30 días; el rango máximo es de 366 días.
+        Con `geo=true` se agrega una rejilla y se ocultan las celdas con menos de 3 reportes.
+
+        **Permisos:** solo `administrador`.
+      parameters:
+        - $ref: '#/components/parameters/Desde'
+        - $ref: '#/components/parameters/Hasta'
+        - name: agrupacion
+          in: query
+          description: Tamaño de cada periodo. Por defecto según el rango (≤31 días `dia`, ≤120 `semana`, más `mes`).
+          schema: { type: string, enum: [dia, semana, mes] }
+        - name: geo
+          in: query
+          description: '`true` = incluir distribución geográfica agregada.'
+          schema: { type: boolean, default: false }
+        - name: celda_grados
+          in: query
+          description: Tamaño de celda en grados (solo con `geo=true`).
+          schema: { type: number, minimum: 0.005, maximum: 0.1, default: 0.01 }
+      responses:
+        '200':
+          description: Estadísticas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Estadisticas' }
+        '400': { $ref: '#/components/responses/ValidacionFallida' }
+        '401': { $ref: '#/components/responses/NoAutorizado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  # ---------------------------------------------------------- Documentación
+  /api/v1/openapi.yaml:
+    get:
+      tags: [Documentación]
+      operationId: obtenerEspecificacion
+      summary: Esta especificación OpenAPI
+      description: |
+        Se puede importar en Bruno, Postman o cualquier generador de clientes.
+
+        **Permisos:** público.
+      security: []
+      responses:
+        '200':
+          description: Especificación OpenAPI 3.1 en YAML.
+          content:
+            application/yaml:
+              schema: { type: string }
+  /api/v1/docs:
+    get:
+      tags: [Documentación]
+      operationId: verDocumentacion
+      summary: Visor interactivo (Swagger UI)
+      description: |
+        Página HTML que carga `/api/v1/openapi.yaml`. Swagger UI se descarga del CDN de
+        jsDelivr, así que el navegador necesita internet; la especificación no.
+
+        **Permisos:** público.
+      security: []
+      responses:
+        '200':
+          description: Página HTML.
+          content:
+            text/html:
+              schema: { type: string }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token de `POST /api/v1/auth/login` o `/registro`. Claims: `sub` (id del usuario),
+        `rol` (`ciudadano` | `administrador`), `iss = urbia-api`, `exp`.
+
+  headers:
+    XRequestID:
+      description: Identificador de la petición para buscarla en los logs.
+      schema: { type: string, maxLength: 64, pattern: '^[A-Za-z0-9._-]{1,64}$', example: 9f2c4e1a7b3d5c60 }
+
+  parameters:
+    IDReporte:
+      name: id
+      in: path
+      required: true
+      description: Id del reporte (entero positivo).
+      schema: { type: integer, format: int64, minimum: 1, example: 12 }
+    IDArchivo:
+      name: id
+      in: path
+      required: true
+      description: Id del archivo (entero positivo).
+      schema: { type: integer, format: int64, minimum: 1, example: 31 }
+    Pagina:
+      name: pagina
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+    PorPagina:
+      name: por_pagina
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Desde:
+      name: desde
+      in: query
+      description: Día inicial `AAAA-MM-DD` (hora de Celaya, incluido).
+      schema: { type: string, format: date, example: '2026-11-01' }
+    Hasta:
+      name: hasta
+      in: query
+      description: Día final `AAAA-MM-DD` (hora de Celaya, incluido).
+      schema: { type: string, format: date, example: '2026-11-30' }
+
+  responses:
+    CuerpoDemasiadoGrande:
+      description: El cuerpo JSON supera 64 KiB (HU 09.1).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: CUERPO_DEMASIADO_GRANDE, message: El cuerpo de la solicitud es demasiado grande }
+    SolicitudInvalida:
+      description: |
+        `SOLICITUD_INVALIDA` (JSON mal formado, id no numérico, multipart ausente) o
+        `VALIDACION_FALLIDA` (campos inválidos, con `details`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          examples:
+            jsonInvalido:
+              summary: JSON mal formado
+              value:
+                success: false
+                error: { code: SOLICITUD_INVALIDA, message: El cuerpo debe ser un JSON válido }
+            idInvalido:
+              summary: Id no numérico
+              value:
+                success: false
+                error: { code: SOLICITUD_INVALIDA, message: El identificador debe ser un entero positivo }
+            validacion:
+              summary: Campos inválidos
+              value:
+                success: false
+                error:
+                  code: VALIDACION_FALLIDA
+                  message: Los datos enviados no son válidos
+                  details:
+                    - { campo: correo, regla: email }
+    ValidacionFallida:
+      description: Parámetros o campos inválidos (`VALIDACION_FALLIDA`), o id no numérico (`SOLICITUD_INVALIDA`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error:
+              code: VALIDACION_FALLIDA
+              message: Los datos enviados no son válidos
+              details:
+                - { campo: desde, regla: fecha, mensaje: "La fecha 'desde' debe tener el formato AAAA-MM-DD" }
+    NoAutorizado:
+      description: Falta el token, es inválido o expiró. Incluye `WWW-Authenticate`.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: 'Bearer realm="urbia"' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          examples:
+            sinToken:
+              value:
+                success: false
+                error: { code: NO_AUTORIZADO, message: Se requiere un token de acceso }
+            tokenInvalido:
+              value:
+                success: false
+                error: { code: NO_AUTORIZADO, message: Token inválido o expirado }
+    Prohibido:
+      description: El rol del token no tiene permiso para esta operación.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: PROHIBIDO, message: No tienes permisos para realizar esta acción }
+    NoEncontrado:
+      description: El recurso no existe o no es visible para este usuario.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: NO_ENCONTRADO, message: Reporte no encontrado }
+    ArchivoDemasiadoGrande:
+      description: La imagen supera 10 MB.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: ARCHIVO_DEMASIADO_GRANDE, message: La imagen supera el tamaño máximo de 10 MB }
+    FormatoNoPermitido:
+      description: El contenido real no es JPEG, PNG ni WebP.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: FORMATO_NO_PERMITIDO, message: 'Formato no permitido: usa JPEG, PNG o WebP' }
+    ImagenInvalida:
+      description: Imagen dañada o con dimensiones fuera de rango (200–8000 px por lado, máx. 25 MP).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: IMAGEN_INVALIDA, message: La imagen debe medir entre 200 y 8000 px por lado y como máximo 25 MP }
+    ErrorInterno:
+      description: Error inesperado; el detalle solo queda en los logs (buscar por `X-Request-ID`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorRespuesta' }
+          example:
+            success: false
+            error: { code: ERROR_INTERNO, message: Ocurrió un error inesperado }
+
+  schemas:
+    # ---------------------------------------------------------- Errores
+    ErrorRespuesta:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error: { $ref: '#/components/schemas/ErrorDetalle' }
+    ErrorDetalle:
+      type: object
+      required: [code, message]
+      properties:
+        code: { $ref: '#/components/schemas/CodigoError' }
+        message: { type: string }
+        details:
+          description: Lista de `ErrorCampo` en validaciones; objeto libre en algunos 409.
+          oneOf:
+            - type: array
+              items: { $ref: '#/components/schemas/ErrorCampo' }
+            - type: object
+    CodigoError:
+      type: string
+      enum:
+        - SOLICITUD_INVALIDA
+        - VALIDACION_FALLIDA
+        - NO_AUTORIZADO
+        - PROHIBIDO
+        - NO_ENCONTRADO
+        - METODO_NO_PERMITIDO
+        - CONFLICTO
+        - ERROR_INTERNO
+        - SERVICIO_NO_DISPONIBLE
+        - ARCHIVO_DEMASIADO_GRANDE
+        - FORMATO_NO_PERMITIDO
+        - IMAGEN_INVALIDA
+        - CUERPO_DEMASIADO_GRANDE
+        - DEMASIADAS_SOLICITUDES
+    ErrorCampo:
+      type: object
+      required: [campo, regla]
+      properties:
+        campo: { type: string, example: descripcion }
+        regla: { type: string, example: longitud }
+        mensaje:
+          type: string
+          description: No aparece en los errores del binding JSON (solo `campo` y `regla`).
+
+    # ---------------------------------------------------------- Catálogos
+    Estado:
+      type: string
+      enum: [pendiente, en_revision, en_proceso, resuelto]
+    Rol:
+      type: string
+      enum: [ciudadano, administrador]
+    NivelPrioridad:
+      type: string
+      enum: [baja, media, alta]
+    Categoria:
+      type: object
+      required: [id_categoria, nombre]
+      properties:
+        id_categoria: { type: integer, example: 1 }
+        nombre: { type: string, example: bache }
+
+    # ---------------------------------------------------------- Salud
+    Dependencia:
+      type: object
+      required: [estado, latencia_ms]
+      properties:
+        estado: { type: string, enum: [activo, caido, no_configurado, sin_verificar] }
+        latencia_ms: { type: integer }
+        ultima_verificacion: { type: string, format: date-time }
+    HealthStatus:
+      type: object
+      required: [status, version, uptime_segundos, timestamp, dependencias]
+      properties:
+        status: { type: string, enum: [ok, degradado, caido] }
+        version: { type: string }
+        uptime_segundos: { type: integer }
+        timestamp: { type: string, format: date-time }
+        dependencias:
+          type: object
+          required: [database, inferencia]
+          properties:
+            database: { $ref: '#/components/schemas/Dependencia' }
+            inferencia: { $ref: '#/components/schemas/Dependencia' }
+
+    # ---------------------------------------------------------- Usuarios
+    RegistroRequest:
+      type: object
+      required: [nombre, correo, contrasena]
+      properties:
+        nombre: { type: string, minLength: 1, maxLength: 100 }
+        correo: { type: string, format: email, maxLength: 150 }
+        contrasena: { type: string, format: password, minLength: 8, maxLength: 72 }
+    LoginRequest:
+      type: object
+      required: [correo, contrasena]
+      properties:
+        correo: { type: string, format: email, maxLength: 150 }
+        contrasena: { type: string, format: password, maxLength: 72 }
+    Usuario:
+      type: object
+      required: [id_usuario, nombre, correo, rol, fecha_registro, fecha_actualizacion]
+      properties:
+        id_usuario: { type: integer, format: int64 }
+        nombre: { type: string }
+        correo: { type: string, format: email }
+        rol: { $ref: '#/components/schemas/Rol' }
+        fecha_registro: { type: string, format: date-time }
+        fecha_actualizacion: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [token, tipo_token, expira_en, usuario]
+      properties:
+        token: { type: string }
+        tipo_token: { type: string, const: Bearer }
+        expira_en: { type: string, format: date-time }
+        usuario: { $ref: '#/components/schemas/Usuario' }
+
+    # ---------------------------------------------------------- Creación de reportes
+    NuevoReporteForm:
+      type: object
+      required: [foto, descripcion, latitud, longitud, origen_ubicacion]
+      properties:
+        foto:
+          type: string
+          format: binary
+          description: JPEG, PNG o WebP; máx. 10 MB; 200 a 8000 px por lado; máx. 25 MP.
+        descripcion: { type: string, minLength: 10, maxLength: 1000 }
+        latitud: { type: number, minimum: -90, maximum: 90, description: WGS 84 }
+        longitud: { type: number, minimum: -180, maximum: 180, description: WGS 84 }
+        origen_ubicacion:
+          type: string
+          enum: [gps, manual]
+          description: '`manual` = marcada en el mapa (GPS apagado, sin señal o impreciso).'
+        precision_m:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+          description: Obligatoria si `origen_ubicacion = gps`; se ignora con `manual`.
+        id_categoria:
+          type: integer
+          minimum: 1
+          description: Opcional. Debe existir y estar activa.
+    Ubicacion:
+      type: object
+      required: [latitud, longitud, origen, precision_m]
+      properties:
+        latitud: { type: number }
+        longitud: { type: number }
+        origen: { type: string, enum: [gps, manual] }
+        precision_m: { type: [number, 'null'] }
+    Archivo:
+      type: object
+      required: [id_archivo, id_reporte, tipo, variante, mime, tamano, fecha_subida]
+      properties:
+        id_archivo: { type: integer, format: int64 }
+        id_reporte: { type: integer, format: int64 }
+        tipo: { type: string, example: imagen }
+        variante: { type: string, enum: [original, procesada] }
+        mime: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        tamano: { type: integer, description: Bytes }
+        fecha_subida: { type: string, format: date-time }
+    EstadoSugerencia:
+      type: string
+      enum: [sugerida, sin_deteccion, no_disponible]
+      description: |
+        `sugerida`: hay categoría sugerida. `sin_deteccion`: la IA no encontró nada
+        concluyente. `no_disponible`: la IA falló o no está configurada.
+    Sugerencia:
+      type: object
+      description: Solo informa; no cambia el reporte.
+      required: [estado, categoria, confianza, coincide_con_categoria, modelo, version_modelo, id_deteccion]
+      properties:
+        estado: { $ref: '#/components/schemas/EstadoSugerencia' }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        confianza: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        coincide_con_categoria: { type: [boolean, 'null'] }
+        modelo: { type: [string, 'null'] }
+        version_modelo: { type: [string, 'null'] }
+        id_deteccion: { type: [integer, 'null'], format: int64 }
+    OrigenCategoria:
+      type: string
+      enum: [sugerida, corregida, manual]
+    Reporte:
+      type: object
+      required: [id_reporte, estado, prioridad, descripcion, categoria, origen_categoria, ubicacion, foto, sugerencia, fecha_creacion]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado: { $ref: '#/components/schemas/Estado' }
+        prioridad: { $ref: '#/components/schemas/NivelPrioridad' }
+        descripcion: { type: string }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        origen_categoria:
+          oneOf:
+            - $ref: '#/components/schemas/OrigenCategoria'
+            - type: 'null'
+        ubicacion: { $ref: '#/components/schemas/Ubicacion' }
+        foto:
+          oneOf:
+            - $ref: '#/components/schemas/Archivo'
+            - type: 'null'
+        sugerencia:
+          oneOf:
+            - $ref: '#/components/schemas/Sugerencia'
+            - type: 'null'
+        fecha_creacion: { type: string, format: date-time }
+
+    # ---------------------------------------------------------- Consulta de reportes
+    UbicacionVista:
+      type: object
+      required: [latitud, longitud, aproximada]
+      properties:
+        latitud: { type: number }
+        longitud: { type: number }
+        aproximada: { type: boolean, description: '`true` = redondeada a ~110 m (reporte ajeno).' }
+    FotoVista:
+      type: object
+      required: [id_archivo, mime, tamano, fecha_subida, url]
+      properties:
+        id_archivo: { type: integer, format: int64 }
+        mime: { type: string }
+        tamano: { type: integer }
+        fecha_subida: { type: string, format: date-time }
+        url: { type: string, example: /api/v1/archivos/31 }
+    SugerenciaVista:
+      type: object
+      required: [estado, categoria, confianza]
+      properties:
+        estado: { $ref: '#/components/schemas/EstadoSugerencia' }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        confianza: { type: [number, 'null'] }
+    ActorHistorial:
+      type: object
+      description: El administrador ve `id_usuario` y `nombre`; el autor solo el `rol`.
+      required: [rol]
+      properties:
+        id_usuario: { type: integer, format: int64 }
+        nombre: { type: string }
+        rol: { $ref: '#/components/schemas/Rol' }
+    HistorialEstado:
+      type: object
+      required: [id_historial_estado, tipo, estado_anterior, estado_nuevo, fecha]
+      properties:
+        id_historial_estado: { type: integer, format: int64 }
+        tipo: { type: string, enum: [creacion, cambio_estado] }
+        estado_anterior:
+          oneOf:
+            - $ref: '#/components/schemas/Estado'
+            - type: 'null'
+        estado_nuevo: { $ref: '#/components/schemas/Estado' }
+        fecha: { type: string, format: date-time }
+        actor: { $ref: '#/components/schemas/ActorHistorial' }
+    HistorialReporte:
+      type: object
+      required: [id_reporte, estado_actual, total, solo_lectura, eventos]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado_actual: { $ref: '#/components/schemas/Estado' }
+        total: { type: integer }
+        solo_lectura: { type: boolean, const: true }
+        eventos:
+          type: array
+          items: { $ref: '#/components/schemas/HistorialEstado' }
+    AutorReporte:
+      type: object
+      required: [id_usuario, nombre, correo]
+      properties:
+        id_usuario: { type: integer, format: int64 }
+        nombre: { type: string }
+        correo: { type: string, format: email }
+    DeteccionVista:
+      type: object
+      required: [id_deteccion, resultado, clase_detectada, confianza, modelo, version_modelo, codigo_error, fecha]
+      properties:
+        id_deteccion: { type: integer, format: int64 }
+        resultado: { type: string, enum: [detectado, no_detectado, error] }
+        clase_detectada: { type: [string, 'null'] }
+        confianza: { type: [number, 'null'] }
+        modelo: { type: [string, 'null'] }
+        version_modelo: { type: [string, 'null'] }
+        codigo_error: { type: [string, 'null'] }
+        fecha: { type: string, format: date-time }
+    DatosAdministrativos:
+      type: object
+      description: Solo aparece para administradores.
+      required: [autor, prioridad, origen_ubicacion, precision_m, origen_categoria]
+      properties:
+        autor: { $ref: '#/components/schemas/AutorReporte' }
+        prioridad: { $ref: '#/components/schemas/NivelPrioridad' }
+        origen_ubicacion: { type: string, enum: [gps, manual] }
+        precision_m: { type: [number, 'null'] }
+        origen_categoria:
+          oneOf:
+            - $ref: '#/components/schemas/OrigenCategoria'
+            - type: 'null'
+        deteccion:
+          $ref: '#/components/schemas/DeteccionVista'
+          description: Solo en el detalle.
+    ReporteResumen:
+      type: object
+      required: [id_reporte, estado, categoria, descripcion, ubicacion, fecha_creacion, es_propio]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado: { $ref: '#/components/schemas/Estado' }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        descripcion: { type: string }
+        ubicacion: { $ref: '#/components/schemas/UbicacionVista' }
+        fecha_creacion: { type: string, format: date-time }
+        es_propio: { type: boolean }
+        id_foto:
+          type: integer
+          format: int64
+          description: Solo para el autor o un administrador.
+        administrativo: { $ref: '#/components/schemas/DatosAdministrativos' }
+    ReporteDetalle:
+      type: object
+      required: [id_reporte, estado, categoria, descripcion, ubicacion, fecha_creacion, fecha_actualizacion, es_propio]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado: { $ref: '#/components/schemas/Estado' }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        descripcion: { type: string }
+        ubicacion: { $ref: '#/components/schemas/UbicacionVista' }
+        fecha_creacion: { type: string, format: date-time }
+        fecha_actualizacion: { type: string, format: date-time }
+        es_propio: { type: boolean }
+        foto: { $ref: '#/components/schemas/FotoVista' }
+        sugerencia: { $ref: '#/components/schemas/SugerenciaVista' }
+        historial:
+          type: array
+          items: { $ref: '#/components/schemas/HistorialEstado' }
+        administrativo: { $ref: '#/components/schemas/DatosAdministrativos' }
+    Paginacion:
+      type: object
+      required: [pagina, por_pagina, total, total_paginas]
+      properties:
+        pagina: { type: integer }
+        por_pagina: { type: integer }
+        total: { type: integer, format: int64 }
+        total_paginas: { type: integer }
+    ListadoReportes:
+      type: object
+      required: [elementos, paginacion]
+      properties:
+        elementos:
+          type: array
+          items: { $ref: '#/components/schemas/ReporteResumen' }
+        paginacion: { $ref: '#/components/schemas/Paginacion' }
+
+    # ---------------------------------------------------------- Clasificación
+    ConfirmarCategoriaRequest:
+      type: object
+      required: [id_categoria]
+      properties:
+        id_categoria: { type: integer, minimum: 1 }
+    Clasificacion:
+      type: object
+      required: [id_clasificacion, id_reporte, categoria, categoria_anterior, categoria_sugerida, id_deteccion, origen, fecha]
+      properties:
+        id_clasificacion: { type: integer, format: int64 }
+        id_reporte: { type: integer, format: int64 }
+        categoria: { $ref: '#/components/schemas/Categoria' }
+        categoria_anterior:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        categoria_sugerida:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        id_deteccion: { type: [integer, 'null'], format: int64 }
+        origen: { $ref: '#/components/schemas/OrigenCategoria' }
+        fecha: { type: string, format: date-time }
+
+    # ---------------------------------------------------------- Estado
+    CambiarEstadoRequest:
+      type: object
+      required: [estado]
+      properties:
+        estado: { $ref: '#/components/schemas/Estado' }
+    CambioEstado:
+      type: object
+      required: [id_reporte, estado_anterior, estado_nuevo, id_historial_estado, cambiado_por, fecha, fecha_actualizacion, estados_siguientes]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado_anterior: { $ref: '#/components/schemas/Estado' }
+        estado_nuevo: { $ref: '#/components/schemas/Estado' }
+        id_historial_estado: { type: integer, format: int64 }
+        cambiado_por: { type: integer, format: int64, description: Administrador que hizo el cambio }
+        fecha: { type: string, format: date-time }
+        fecha_actualizacion: { type: string, format: date-time }
+        estados_siguientes:
+          type: array
+          description: Vacío si el nuevo estado es final.
+          items: { $ref: '#/components/schemas/Estado' }
+
+    # ---------------------------------------------------------- Prioridad
+    CalcularPrioridadRequest:
+      type: object
+      description: Un campo omitido reutiliza la evaluación anterior del administrador.
+      properties:
+        gravedad_observable: { type: [integer, 'null'], minimum: 1, maximum: 5 }
+        afectacion_estimada:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 5
+          description: Requiere `justificacion_afectacion`.
+        justificacion_afectacion: { type: [string, 'null'], minLength: 10, maxLength: 500 }
+    FactorPrioridad:
+      type: object
+      required: [factor, peso, disponible, valor, peso_efectivo, aporte, fuente, explicacion]
+      properties:
+        factor: { type: string, enum: [gravedad_observable, afectacion_estimada, recurrencia_verificada, antiguedad] }
+        peso: { type: number }
+        disponible: { type: boolean }
+        valor: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        peso_efectivo: { type: [number, 'null'] }
+        aporte: { type: [number, 'null'], description: Puntos (sobre 100) que suma }
+        fuente: { type: string }
+        explicacion: { type: string }
+        detalle: { type: object, additionalProperties: true }
+    CalculoPrioridad:
+      type: object
+      required: [id_calculo, id_reporte, version_formula, provisional, puntuacion, nivel, datos_suficientes, cobertura, cobertura_minima, factores, factores_faltantes, resumen, prioridad_asignada, calculado_por, fecha]
+      properties:
+        id_calculo: { type: integer, format: int64 }
+        id_reporte: { type: integer, format: int64 }
+        version_formula: { type: string, example: v1-provisional }
+        provisional: { type: boolean }
+        puntuacion: { type: number, minimum: 0, maximum: 100 }
+        nivel:
+          oneOf:
+            - $ref: '#/components/schemas/NivelPrioridad'
+            - type: 'null'
+        datos_suficientes: { type: boolean }
+        cobertura: { type: number }
+        cobertura_minima: { type: number }
+        factores:
+          type: array
+          items: { $ref: '#/components/schemas/FactorPrioridad' }
+        factores_faltantes:
+          type: [array, 'null']
+          items: { type: string }
+        resumen: { type: string }
+        prioridad_asignada: { type: boolean, description: '`true` = actualizó `reporte.prioridad`.' }
+        calculado_por: { type: integer, format: int64 }
+        fecha: { type: string, format: date-time }
+    ConsultaPrioridad:
+      type: object
+      required: [reporte, calculo, vigencia]
+      properties:
+        reporte:
+          type: object
+          required: [id_reporte, estado, prioridad, origen_prioridad]
+          properties:
+            id_reporte: { type: integer, format: int64 }
+            estado: { $ref: '#/components/schemas/Estado' }
+            prioridad: { $ref: '#/components/schemas/NivelPrioridad' }
+            origen_prioridad: { type: string, enum: [por_defecto, calculada] }
+        calculo:
+          oneOf:
+            - $ref: '#/components/schemas/CalculoPrioridad'
+            - type: 'null'
+        vigencia:
+          type: object
+          required: [desactualizado, motivos, puntuacion_actual, nivel_actual]
+          properties:
+            desactualizado: { type: boolean }
+            motivos:
+              type: [array, 'null']
+              items: { type: string }
+            puntuacion_actual: { type: number }
+            nivel_actual:
+              oneOf:
+                - $ref: '#/components/schemas/NivelPrioridad'
+                - type: 'null'
+
+    # ---------------------------------------------------------- Cercanos
+    ParametrosCercania:
+      type: object
+      required: [radio_m, ventana_dias, limite]
+      properties:
+        radio_m: { type: integer }
+        ventana_dias: { type: integer }
+        limite: { type: integer }
+    Coincidencia:
+      type: object
+      required: [id_reporte, estado, categoria, descripcion, ubicacion, fecha_creacion, distancia_m, dias_diferencia, misma_categoria, dentro_ventana, mismo_autor, puntuacion, nivel]
+      properties:
+        id_reporte: { type: integer, format: int64 }
+        estado: { $ref: '#/components/schemas/Estado' }
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/Categoria'
+            - type: 'null'
+        descripcion: { type: string }
+        ubicacion: { $ref: '#/components/schemas/UbicacionVista' }
+        fecha_creacion: { type: string, format: date-time }
+        distancia_m: { type: number }
+        dias_diferencia: { type: number, description: Negativo si es anterior al reporte base }
+        misma_categoria: { type: [boolean, 'null'], description: '`null` si alguno no tiene categoría' }
+        dentro_ventana: { type: boolean }
+        mismo_autor: { type: boolean }
+        puntuacion: { type: number }
+        nivel: { type: string, enum: [alta, media, baja] }
+    ReportesCercanos:
+      type: object
+      required: [reporte, parametros, coincidencias, total]
+      properties:
+        reporte:
+          type: object
+          required: [id_reporte, estado, categoria, ubicacion, fecha_creacion]
+          properties:
+            id_reporte: { type: integer, format: int64 }
+            estado: { $ref: '#/components/schemas/Estado' }
+            categoria:
+              oneOf:
+                - $ref: '#/components/schemas/Categoria'
+                - type: 'null'
+            ubicacion: { $ref: '#/components/schemas/UbicacionVista' }
+            fecha_creacion: { type: string, format: date-time }
+        parametros: { $ref: '#/components/schemas/ParametrosCercania' }
+        coincidencias:
+          type: array
+          items: { $ref: '#/components/schemas/Coincidencia' }
+        total: { type: integer, description: Candidatos dentro del radio antes de aplicar el límite }
+
+    # ---------------------------------------------------------- Estadísticas
+    Estadisticas:
+      type: object
+      required: [filtros, total, por_estado, por_categoria, por_periodo]
+      properties:
+        filtros:
+          type: object
+          required: [desde, hasta, dias, zona_horaria, agrupacion]
+          properties:
+            desde: { type: string, format: date }
+            hasta: { type: string, format: date }
+            dias: { type: integer }
+            zona_horaria: { type: string, example: America/Mexico_City }
+            agrupacion: { type: string, enum: [dia, semana, mes] }
+        total: { type: integer, format: int64 }
+        por_estado:
+          type: array
+          items:
+            type: object
+            required: [estado, total]
+            properties:
+              estado: { $ref: '#/components/schemas/Estado' }
+              total: { type: integer, format: int64 }
+        por_categoria:
+          type: array
+          items:
+            type: object
+            required: [id_categoria, nombre, activa, total, por_estado]
+            properties:
+              id_categoria: { type: [integer, 'null'], description: '`null` = reportes sin categoría' }
+              nombre: { type: string }
+              activa: { type: boolean }
+              total: { type: integer, format: int64 }
+              por_estado:
+                type: object
+                additionalProperties: { type: integer }
+                example: { pendiente: 3, resuelto: 1 }
+        por_periodo:
+          type: array
+          items:
+            type: object
+            required: [inicio, total]
+            properties:
+              inicio: { type: string, format: date, description: Primer día del periodo }
+              total: { type: integer, format: int64 }
+        distribucion_geografica:
+          type: object
+          description: Solo con `geo=true`.
+          required: [celda_grados, minimo_por_celda, celdas, celdas_ocultas, reportes_ocultos]
+          properties:
+            celda_grados: { type: number }
+            minimo_por_celda: { type: integer, example: 3 }
+            celdas:
+              type: array
+              items:
+                type: object
+                required: [latitud, longitud, total]
+                properties:
+                  latitud: { type: number, description: Centro de la celda }
+                  longitud: { type: number, description: Centro de la celda }
+                  total: { type: integer, format: int64 }
+            celdas_ocultas: { type: integer }
+            reportes_ocultos: { type: integer, format: int64 }

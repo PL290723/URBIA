@@ -1,0 +1,32 @@
+info:
+  name: "16 POST recalcular"
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const rec = d.factores.find(f => f.factor === "recurrencia_verificada");
+        const grav = d.factores.find(f => f.factor === "gravedad_observable");
+        const afec = d.factores.find(f => f.factor === "afectacion_estimada");
+        test("201", () => expect(res.status).to.equal(201));
+        test("2 recurrentes", () => expect(rec.detalle.reportes).to.equal(2));
+        test("R4 en la explicación", () => expect(rec.detalle.ids_reportes).to.include(Number(bru.getEnvVar("idPrioRec2"))));
+        test("reutiliza evaluación", () => { expect(grav.detalle.evaluacion).to.equal(4); expect(afec.detalle.evaluacion).to.equal(3); });
+        test("~55 puntos", () => expect(d.puntuacion).to.be.within(54, 57));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

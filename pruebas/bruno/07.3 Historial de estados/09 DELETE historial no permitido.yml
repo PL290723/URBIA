@@ -1,0 +1,24 @@
+info:
+  name: "09 DELETE historial no permitido"
+  type: http
+  seq: 12
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/reportes/{{idHist}}/historial"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("405", () => expect(res.status).to.equal(405));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

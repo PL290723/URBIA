@@ -1,0 +1,27 @@
+info:
+  name: "16 Listado - filtro del administrador"
+  type: http
+  seq: 17
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes?estado=resuelto&id_categoria=3&por_pagina=100"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const ids = res.body.data.elementos.map(e => e.id_reporte);
+        test("200", () => expect(res.status).to.equal(200));
+        test("el filtro resuelto + basura lo encuentra", () => expect(ids).to.include(Number(bru.getEnvVar("id094"))));
+        test("todos cumplen el filtro", () => res.body.data.elementos.forEach(e => { expect(e.estado).to.equal("resuelto"); expect(e.categoria.nombre).to.equal("basura"); }));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

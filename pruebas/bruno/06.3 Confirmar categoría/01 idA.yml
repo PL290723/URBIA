@@ -1,0 +1,21 @@
+info:
+  name: 01 idA
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{idA}}/categoria"
+  body:
+    type: json
+    data: '{"id_categoria": 3}'
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

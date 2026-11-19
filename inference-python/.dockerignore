@@ -1,0 +1,31 @@
+# Entornos y cachés
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Pesos, datasets y entrenamientos (los pesos se descargan del Release al construir)
+models/
+weights/
+datasets/
+runs/
+*.pt
+*.pth
+*.onnx
+
+# Pruebas y herramientas de desarrollo
+tests/
+test_inference.py
+requirements-dev.txt
+pytest.ini
+
+# Secretos e IDE
+.env
+.env.*
+.idea/
+.vscode/
+
+Dockerfile
+.dockerignore

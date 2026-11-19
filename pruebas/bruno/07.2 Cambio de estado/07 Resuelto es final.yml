@@ -1,0 +1,33 @@
+info:
+  name: "07 Resuelto es final"
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{idEstado}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "en_proceso"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const e = res.body.error;
+        test("409", () => expect(res.status).to.equal(409));
+        test("CONFLICTO", () => expect(e.code).to.equal("CONFLICTO"));
+        test("estado actual resuelto", () => expect(e.details.estado_actual).to.equal("resuelto"));
+        test("estados permitidos", () => expect(e.details.estados_permitidos).to.eql([]));
+        test("mensaje", () => expect(e.message).to.include("estado final"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

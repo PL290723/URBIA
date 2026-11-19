@@ -1,0 +1,49 @@
+info:
+  name: "21 Tras reinicio - nuevo reporte con IA"
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/basura_tres.jpeg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.4] Basura despu\u00e9s del reinicio"
+      - name: latitud
+        type: text
+        value: "{{lat094}}"
+      - name: longitud
+        type: text
+        value: "{{lon094}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "6.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const s = res.body.data.sugerencia;
+        test("201", () => expect(res.status).to.equal(201));
+        test("la IA responde tras el reinicio", () => { expect(s.estado).to.equal("sugerida"); expect(s.categoria.nombre).to.equal("basura"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

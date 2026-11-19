@@ -1,0 +1,52 @@
+info:
+  name: 05 Foto valida sin python
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/basura_tres.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "12.5"
+      - name: id_categoria
+        type: text
+        value: "3"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("201 aunque la IA falle", () => expect(res.status).to.equal(201));
+        test("no disponible", () => expect(res.body.data.sugerencia.estado).to.equal("no_disponible"));
+        test("reporte guardado", () => expect(res.body.data.id_reporte).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,29 @@
+info:
+  name: "09 BD detenida - Login"
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/login"
+  body:
+    type: json
+    data: '{"correo": "ana@test.mx", "contrasena": "NuevaClave123"}'
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: PostgreSQL detenido
+        const txt = JSON.stringify(res.body).toLowerCase();
+        test("500, no un 401 engañoso", () => expect(res.status).to.equal(500));
+        test("ERROR_INTERNO", () => expect(res.body.error.code).to.equal("ERROR_INTERNO"));
+        test("no filtra el error de la BD", () => { expect(txt).to.not.contain("postgres"); expect(txt).to.not.contain("pgx"); expect(txt).to.not.contain("dial"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

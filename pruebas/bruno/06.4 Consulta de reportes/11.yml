@@ -1,0 +1,31 @@
+info:
+  name: "11"
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idOtro}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("aproximada", () => expect(d.ubicacion.aproximada).to.equal(true));
+        test("3 decimales", () => expect(String(d.ubicacion.latitud).split(".")[1].length).to.be.at.most(3));
+        test("sin foto", () => expect(d).to.not.have.property("foto"));
+        test("sin sugerencia", () => expect(d).to.not.have.property("sugerencia"));
+        test("sin datos administrativos", () => expect(d).to.not.have.property("administrativo"));
+        test("sin correo", () => expect(JSON.stringify(res.body)).to.not.include("@"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

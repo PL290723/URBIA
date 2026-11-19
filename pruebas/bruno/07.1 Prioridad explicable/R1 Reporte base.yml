@@ -1,0 +1,61 @@
+info:
+  name: "R1 Reporte base"
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Bache profundo en avenida principal"
+      - name: latitud
+        type: text
+        value: "{{latPrio}}"
+      - name: longitud
+        type: text
+        value: "{{lonPrio}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "10"
+      - name: id_categoria
+        type: text
+        value: "1"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Punto aleatorio en Celaya para que cada corrida empiece sin reportes cercanos
+        const lat = 20.5400 + Math.random() * 0.04;
+        const lon = -100.8600 + Math.random() * 0.04;
+        bru.setEnvVar("latPrio", lat.toFixed(6));
+        bru.setEnvVar("lonPrio", lon.toFixed(6));
+        bru.setEnvVar("latPrioCerca", (lat + 0.00009).toFixed(6));   // ~10 m al norte
+        bru.setEnvVar("latPrioCerca2", (lat - 0.00009).toFixed(6));  // ~10 m al sur
+        bru.setEnvVar("latPrioLejos", (lat + 0.01).toFixed(6));      // ~1.1 km
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        if (res.status === 201) { bru.setEnvVar("idPrio", res.body.data.id_reporte); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

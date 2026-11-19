@@ -1,0 +1,33 @@
+info:
+  name: "00 Login ciudadano"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "correo": "ana@test.mx",
+        "contrasena": "NuevaClave123"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 200) bru.setEnvVar("token", res.body.data.token);
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("ciudadano", () => expect(res.body.data.usuario.rol).to.equal("ciudadano"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

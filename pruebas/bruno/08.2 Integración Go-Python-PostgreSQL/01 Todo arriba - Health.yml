@@ -1,0 +1,25 @@
+info:
+  name: "01 Todo arriba - Health"
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("status ok", () => expect(d.status).to.equal("ok"));
+        test("Go ↔ PostgreSQL activo", () => expect(d.dependencias.database.estado).to.equal("activo"));
+        test("Go ↔ Python activo", () => expect(d.dependencias.inferencia.estado).to.equal("activo"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

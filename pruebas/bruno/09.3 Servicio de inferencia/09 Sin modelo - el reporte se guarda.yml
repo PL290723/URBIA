@@ -1,0 +1,50 @@
+info:
+  name: "09 Sin modelo - el reporte se guarda"
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "fotos/bache.jpeg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.3] Python sin modelo"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "8.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const s = res.body.data.sugerencia;
+        test("201: el reporte se guarda igual", () => expect(res.status).to.equal(201));
+        test("no_disponible", () => expect(s.estado).to.equal("no_disponible"));
+        test("sin categoría ni modelo", () => { expect(s.categoria).to.equal(null); expect(s.modelo).to.equal(null); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

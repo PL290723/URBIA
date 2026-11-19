@@ -1,0 +1,27 @@
+info:
+  name: "07 Python - lo corrupto no llego al modelo"
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "http://localhost:8000/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Entre la 01 y esta, Python recibió solo las 3 fotos válidas (02, 03, 04)
+        const antes = Number(bru.getEnvVar("inferenciasAntes"));
+        const erroresAntes = Number(bru.getEnvVar("erroresAntes"));
+        const inf = res.body.inferencias;
+        test("procesó las 3 fotos válidas", () => expect(inf.peticiones).to.equal(antes + 3));
+        test("ningún error de inferencia", () => expect(inf.errores).to.equal(erroresAntes));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

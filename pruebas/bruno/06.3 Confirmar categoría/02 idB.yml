@@ -1,0 +1,31 @@
+info:
+  name: 02 idB
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{idB}}/categoria"
+  body:
+    type: json
+    data: '{"id_categoria": 1}'
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("200", () => expect(res.status).to.equal(200));
+        test("corregida", () => expect(res.body.data.origen).to.equal("corregida"));
+        test("sugerida basura", () => expect(res.body.data.categoria_sugerida.nombre).to.equal("basura"));
+        test("final bache", () => expect(res.body.data.categoria.nombre).to.equal("bache"));
+        test("referencia detección", () => expect(res.body.data.id_deteccion).to.be.a("number"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

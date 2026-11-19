@@ -1,0 +1,18 @@
+# Secretos
+.env*
+
+# Dependencias
+node_modules
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Fotos reales de prueba: se ponen localmente (ver fotos/README.md)
+fotos/*
+!fotos/README.md
+
+# Entornos de trabajo: Bruno guarda en ellos tokens e ids al correr las pruebas.
+# Solo se versiona la plantilla limpia.
+environments/*
+!environments/ejemplo.yml

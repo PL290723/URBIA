@@ -1,0 +1,18 @@
+info:
+  name: 11 Sin Auth
+  type: http
+  seq: 15
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{idA}}/categoria"
+  body:
+    type: json
+    data: '{"id_categoria": 3}'
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,7 @@
+info:
+  name: 07.1 Prioridad explicable
+  type: folder
+  seq: 14
+
+request:
+  auth: inherit

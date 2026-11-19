@@ -1,0 +1,25 @@
+info:
+  name: "25 Health degradado"
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: docker compose stop inferencia (desde deployments/) y esperar 20 s
+        const d = res.body.data;
+        test("200 degradado: la API sigue atendiendo", () => { expect(res.status).to.equal(200); expect(d.status).to.equal("degradado"); });
+        test("PostgreSQL activo, IA caida", () => { expect(d.dependencias.database.estado).to.equal("activo"); expect(d.dependencias.inferencia.estado).to.equal("caido"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

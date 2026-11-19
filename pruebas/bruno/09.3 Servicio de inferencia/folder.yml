@@ -1,0 +1,7 @@
+info:
+  name: 09.3 Servicio de inferencia
+  type: folder
+  seq: 21
+
+request:
+  auth: inherit

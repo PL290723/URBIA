@@ -1,0 +1,55 @@
+info:
+  name: "R1 Reporte de Ana"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Bache para revisar su historial"
+      - name: latitud
+        type: text
+        value: "{{latHist}}"
+      - name: longitud
+        type: text
+        value: "{{lonHist}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "10"
+      - name: id_categoria
+        type: text
+        value: "1"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setEnvVar("latHist", (20.5600 + Math.random() * 0.03).toFixed(6));
+        bru.setEnvVar("lonHist", (-100.7900 + Math.random() * 0.03).toFixed(6));
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        if (res.status === 201) { bru.setEnvVar("idHist", res.body.data.id_reporte); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,26 @@
+info:
+  name: 15 Body JSON
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: json
+    data: '{"descripcion":"Basura frente a la escuela"}'
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: test("400", () => expect(res.status).to.equal(400)); test("código", () => expect(res.body.error.code).to.equal("SOLICITUD_INVALIDA"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

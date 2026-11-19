@@ -1,0 +1,29 @@
+info:
+  name: "01 GET sin cálculo"
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idPrio}}/prioridad"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("sin cálculo", () => expect(d.calculo).to.equal(null));
+        test("pide calcular", () => expect(d.vigencia.desactualizado).to.equal(true));
+        test("prioridad por defecto", () => expect(d.reporte.origen_prioridad).to.equal("por_defecto"));
+        test("media por defecto", () => expect(d.reporte.prioridad).to.equal("media"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

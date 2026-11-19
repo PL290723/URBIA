@@ -1,0 +1,26 @@
+info:
+  name: 18b
+  type: http
+  seq: 19
+
+http:
+  method: GET
+  url: "{{baseUrl}}/archivos/{{idFotoPropia}}"
+  auth:
+    type: bearer
+    token: "{{tokenOtro}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("404", () => expect(res.status).to.equal(404));
+        test("no revela que existe", () => expect(res.body.error.code).to.equal("NO_ENCONTRADO"));
+        test("no manda la imagen", () => expect(res.headers["content-type"]).to.include("application/json"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

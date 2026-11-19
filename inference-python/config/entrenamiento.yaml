@@ -1,0 +1,25 @@
+# Configuración de entrenamiento del detector de URBIA (HU 05.2).
+# Las rutas son relativas a inference-python/.
+# Cualquier valor se puede sobrescribir desde la línea de comandos de
+# scripts/entrenar.py (por ejemplo --epochs 1 para una prueba rápida).
+
+modelo_base: auto            # auto = según hardware (yolo26s con GPU >= 6 GB, si no yolo26n)
+data: datasets/urbia/data.yaml
+
+device: auto                 # auto, cpu, 0 (primera GPU)
+
+epochs: 100                  # máximo; se detiene antes si no mejora (patience)
+patience: 20                 # épocas sin mejorar en val antes de parar
+imgsz: 640
+batch: auto                  # auto = -1 en GPU (según VRAM) y 8 en CPU
+workers: 4
+seed: 42
+deterministic: true
+optimizer: auto
+cos_lr: false
+close_mosaic: 10             # quita el aumento "mosaic" las últimas 10 épocas
+amp: true                    # precisión mixta en GPU (más rápido, menos VRAM)
+plots: true
+
+project: runs/urbia          # runs/ ya está en .gitignore
+name: entrenamiento

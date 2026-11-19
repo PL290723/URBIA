@@ -1,0 +1,25 @@
+info:
+  name: "08 BD detenida - Health"
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: detén el servicio de PostgreSQL (services.msc → postgresql-x64-18 → Detener)
+        test("503", () => expect(res.status).to.equal(503));
+        test("caido", () => expect(res.body.data.status).to.equal("caido"));
+        test("SERVICIO_NO_DISPONIBLE", () => expect(res.body.error.code).to.equal("SERVICIO_NO_DISPONIBLE"));
+        test("sin detalles internos", () => expect(JSON.stringify(res.body).toLowerCase()).to.not.contain("pgx"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

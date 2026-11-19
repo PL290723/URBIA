@@ -1,0 +1,7 @@
+info:
+  name: 06.4 Consulta de reportes
+  type: folder
+  seq: 12
+
+request:
+  auth: inherit

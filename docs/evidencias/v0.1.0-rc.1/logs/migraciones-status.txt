@@ -1,0 +1,16 @@
+﻿ Container urbia-db-1 Running 
+ Container urbia-db-1 Waiting 
+ Container urbia-db-1 Healthy 
+ Container urbia-migraciones-run-48f77db8634f Creating 
+ Container urbia-migraciones-run-48f77db8634f Created 
+2026/11/19 19:37:47     Applied At                  Migration
+2026/11/19 19:37:47     =======================================
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00001_esquema_inicial.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00002_datos_semilla.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00003_estados_y_transiciones.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00004_metadatos_archivo.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00005_ubicacion_reporte.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00006_detalle_deteccion.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00007_clasificacion.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00008_calculo_prioridad.sql
+2026/11/19 19:37:47     Wed Nov 18 10:28:25 2026 -- 00009_historial_inmutable.sql

@@ -1,0 +1,7 @@
+info:
+  name: 08.1 Documentación OpenAPI
+  type: folder
+  seq: 18
+
+request:
+  auth: inherit

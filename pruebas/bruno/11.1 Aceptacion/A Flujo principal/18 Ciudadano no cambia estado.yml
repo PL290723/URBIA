@@ -1,0 +1,30 @@
+info:
+  name: "18 Ciudadano no cambia estado"
+  type: http
+  seq: 18
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{id111}}/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "en_revision"
+      }
+  auth:
+    type: bearer
+    token: "{{token111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("403 para un ciudadano", () => expect(res.status).to.equal(403));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

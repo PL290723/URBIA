@@ -1,0 +1,7 @@
+info:
+  name: 07.2 Cambio de estado
+  type: folder
+  seq: 15
+
+request:
+  auth: inherit

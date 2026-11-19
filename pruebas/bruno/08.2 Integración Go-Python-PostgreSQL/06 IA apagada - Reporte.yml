@@ -1,0 +1,56 @@
+info:
+  name: "06 IA apagada - Reporte"
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[IT 08.2] Python detenido"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "8.5"
+  headers:
+    - name: X-Request-ID
+      value: it082-bruno-apagada
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES: servidor_grpc.py detenido
+        const s = res.body.data.sugerencia;
+        test("201: el reporte se guarda igual", () => expect(res.status).to.equal(201));
+        test("no_disponible", () => expect(s.estado).to.equal("no_disponible"));
+        test("sin categoría ni modelo", () => { expect(s.categoria).to.equal(null); expect(s.modelo).to.equal(null); });
+        test("el error quedó registrado", () => expect(s.id_deteccion).to.be.a("number"));
+        test("respondió rápido (< 10 s)", () => expect(res.getResponseTime()).to.be.below(10000));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

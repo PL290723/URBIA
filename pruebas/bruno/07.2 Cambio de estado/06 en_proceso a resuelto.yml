@@ -1,0 +1,34 @@
+info:
+  name: "06 en_proceso a resuelto"
+  type: http
+  seq: 8
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/{{idEstado}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "resuelto"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("anterior en_proceso", () => expect(d.estado_anterior).to.equal("en_proceso"));
+        test("nuevo resuelto", () => expect(d.estado_nuevo).to.equal("resuelto"));
+        test("registra al administrador", () => expect(d.cambiado_por).to.be.a("number"));
+        test("historial creado", () => expect(d.id_historial_estado).to.be.a("number"));
+        test("estados siguientes", () => expect(d.estados_siguientes).to.eql([]));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

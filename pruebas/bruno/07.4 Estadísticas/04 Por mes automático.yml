@@ -1,0 +1,41 @@
+info:
+  name: "04 Por mes automático"
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseUrl}}/estadisticas?desde=2026-01-01&hasta=2026-11-16"
+  params:
+    - name: desde
+      value: "2026-01-01"
+      type: query
+    - name: hasta
+      value: "2026-11-16"
+      type: query
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        test("200", () => expect(res.status).to.equal(200));
+        test("agrupación automática mes", () => expect(d.filtros.agrupacion).to.equal("mes"));
+        test("11 meses", () => { expect(d.por_periodo.length).to.equal(11); expect(d.por_periodo[0].inicio).to.equal("2026-01-01"); expect(d.por_periodo[10].inicio).to.equal("2026-11-01"); });
+
+        const suma = (xs) => xs.reduce((s, x) => s + x.total, 0);
+        test("Σ por_estado = total", () => expect(suma(d.por_estado)).to.equal(d.total));
+        test("Σ por_categoria = total", () => expect(suma(d.por_categoria)).to.equal(d.total));
+        test("Σ por_periodo = total", () => expect(suma(d.por_periodo)).to.equal(d.total));
+        test("4 estados en orden", () => expect(d.por_estado.map(e => e.estado)).to.eql(["pendiente", "en_revision", "en_proceso", "resuelto"]));
+        test("sin_categoria al final", () => expect(d.por_categoria[d.por_categoria.length - 1].nombre).to.equal("sin_categoria"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

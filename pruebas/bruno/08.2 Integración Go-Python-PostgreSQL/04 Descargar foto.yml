@@ -1,0 +1,27 @@
+info:
+  name: "04 Descargar foto"
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseUrl}}/archivos/{{idArchivoInteg}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Go lee de STORAGE_DIR la misma foto que leyó Python
+        test("200", () => expect(res.status).to.equal(200));
+        test("es JPEG", () => expect(res.headers["content-type"]).to.equal("image/jpeg"));
+        test("privada", () => expect(res.headers["cache-control"]).to.equal("private, no-store"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,1 @@
+"""Paquete de visión artificial de URBIA (servicio de inferencia en Python)."""

@@ -1,0 +1,45 @@
+info:
+  name: 04 Foto limpia
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/limpia.jpg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: Basura frente a la escuela
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: gps
+      - name: precision_m
+        type: text
+        value: "12.5"
+      - name: id_categoria
+        type: text
+        value: "3"
+        disabled: true
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

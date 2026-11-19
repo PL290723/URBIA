@@ -1,0 +1,36 @@
+info:
+  name: "45 CORS - preflight de origen permitido"
+  type: http
+  seq: 45
+
+http:
+  method: OPTIONS
+  url: "{{baseUrl}}/reportes"
+  headers:
+    - name: Origin
+      value: "http://localhost:5173"
+    - name: Access-Control-Request-Method
+      value: "POST"
+    - name: Access-Control-Request-Headers
+      value: "authorization, content-type"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Requiere CORS_ALLOWED_ORIGINS=http://localhost:5173 en backend-go/.env
+        test("204", () => expect(res.status).to.equal(204));
+        test("permite exactamente ese origen", () => expect(res.getHeader("access-control-allow-origin")).to.equal("http://localhost:5173"));
+        test("métodos y encabezados, sin credenciales", () => {
+          expect(res.getHeader("access-control-allow-methods")).to.contain("POST");
+          expect(res.getHeader("access-control-allow-headers")).to.contain("Authorization");
+          expect(res.getHeader("access-control-allow-credentials")).to.be.undefined;
+          expect(res.getHeader("vary")).to.contain("Origin");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

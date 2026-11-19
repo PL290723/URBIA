@@ -1,0 +1,29 @@
+info:
+  name: "11 Historial sin cambios retroactivos"
+  type: http
+  seq: 15
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{idHist}}/historial"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const ev = res.body.data.eventos;
+        const antes = JSON.parse(bru.getEnvVar("histPrimeros"));
+        test("200", () => expect(res.status).to.equal(200));
+        test("4 eventos", () => expect(ev.length).to.equal(4));
+        test("se agregó al final", () => { expect(ev[3].estado_anterior).to.equal("en_proceso"); expect(ev[3].estado_nuevo).to.equal("resuelto"); });
+        test("los 3 anteriores no cambiaron", () => expect(ev.slice(0, 3)).to.eql(antes));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

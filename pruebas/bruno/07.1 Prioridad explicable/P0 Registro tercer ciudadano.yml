@@ -1,0 +1,32 @@
+info:
+  name: "P0 Registro tercer ciudadano"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/registro"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Marta",
+        "correo": "marta@test.mx",
+        "contrasena": "Marta2026!"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // 201 la primera vez; 409 si Marta ya existe (entonces P1 obtiene su token)
+        test("201 o 409", () => expect([201, 409]).to.include(res.status));
+        if (res.status === 201) { bru.setEnvVar("tokenTercero", res.body.data.token); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

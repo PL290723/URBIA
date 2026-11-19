@@ -1,0 +1,26 @@
+info:
+  name: "14 Busqueda bbox lejano"
+  type: http
+  seq: 14
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes?bbox=-99.20,19.40,-99.10,19.45"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const ids = res.body.data.elementos.map(r => r.id_reporte);
+        test("200", () => expect(res.status).to.equal(200));
+        test("NO incluye el reporte (zona de CDMX)", () => expect(ids).to.not.include(Number(bru.getEnvVar("id111"))));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

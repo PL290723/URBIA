@@ -1,0 +1,24 @@
+# Dependencias y compilación
+node_modules
+dist
+dev-dist
+*.tsbuildinfo
+
+# Variables locales (copiar desde .env.example)
+.env
+.env.local
+.env.*.local
+
+# Certificados HTTPS locales (mkcert)
+certs/
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

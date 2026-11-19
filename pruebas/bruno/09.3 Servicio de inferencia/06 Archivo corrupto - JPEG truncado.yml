@@ -1,0 +1,49 @@
+info:
+  name: "06 Archivo corrupto - JPEG truncado"
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - "09.3 Servicio de inferencia/archivos/jpeg-truncado.jpg"
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "[09.3] JPEG cortado a la mitad"
+      - name: latitud
+        type: text
+        value: "20.5235"
+      - name: longitud
+        type: text
+        value: "-100.8157"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "8.5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Cabecera válida pero datos incompletos: Go lo detecta al decodificar
+        test("422", () => expect(res.status).to.equal(422));
+        test("IMAGEN_INVALIDA", () => expect(res.body.error.code).to.equal("IMAGEN_INVALIDA"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

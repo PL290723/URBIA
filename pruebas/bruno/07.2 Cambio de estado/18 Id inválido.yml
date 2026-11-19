@@ -1,0 +1,29 @@
+info:
+  name: "18 Id inválido"
+  type: http
+  seq: 20
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/reportes/abc/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "en_revision"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("400", () => expect(res.status).to.equal(400));
+        test("SOLICITUD_INVALIDA", () => expect(res.body.error.code).to.equal("SOLICITUD_INVALIDA"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

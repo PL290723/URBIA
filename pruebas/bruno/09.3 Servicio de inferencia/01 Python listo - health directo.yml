@@ -1,0 +1,34 @@
+info:
+  name: "01 Python listo - health directo"
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "http://localhost:8000/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // Contadores de inferencias antes de las pruebas (los usa la 07)
+        if (res.status === 200) {
+          bru.setEnvVar("inferenciasAntes", String(res.body.inferencias.peticiones));
+          bru.setEnvVar("erroresAntes", String(res.body.inferencias.errores));
+        }
+    - type: tests
+      code: |-
+        // ANTES: python -m scripts.servidor_grpc corriendo en inference-python
+        const m = res.body.modelo;
+        test("200 listo", () => { expect(res.status).to.equal(200); expect(res.body.estado).to.equal("listo"); });
+        test("modelo publicado", () => { expect(m.nombre).to.equal("urbia-yolo26s"); expect(m.version).to.equal("1.0.0"); });
+        test("umbral 0.25", () => expect(m.umbral_confianza).to.equal(0.25));
+        test("contrato gRPC 1.0.0", () => expect(res.body.version_contrato).to.equal("1.0.0"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

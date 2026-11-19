@@ -1,0 +1,33 @@
+info:
+  name: "01 Especificación OpenAPI"
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/openapi.yaml"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const cuerpo = String(res.body);
+        test("200", () => expect(res.status).to.equal(200));
+        test("Content-Type YAML", () => expect(res.getHeader("content-type")).to.contain("application/yaml"));
+        test("no se cachea", () => expect(res.getHeader("cache-control")).to.equal("no-cache"));
+        test("es OpenAPI 3.1 de URBIA", () => {
+          expect(cuerpo).to.contain("openapi: 3.1.0");
+          expect(cuerpo).to.contain("title: URBIA API");
+        });
+        test("documenta la autenticación JWT", () => expect(cuerpo).to.contain("bearerAuth"));
+        test("documenta endpoints de cada módulo", () => {
+          ["/api/v1/auth/login:", "/api/v1/reportes:", "/api/v1/reportes/{id}/estado:", "/api/v1/estadisticas:"]
+            .forEach(r => expect(cuerpo).to.contain(r));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,26 @@
+info:
+  name: "28 Health tras reinicio"
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // ANTES (desde deployments/): docker compose restart; docker compose down; docker compose up -d
+        // y esperar a que todo este healthy (hasta ~90 s)
+        const d = res.body.data;
+        test("200 ok", () => { expect(res.status).to.equal(200); expect(d.status).to.equal("ok"); });
+        test("PostgreSQL e IA activos", () => { expect(d.dependencias.database.estado).to.equal("activo"); expect(d.dependencias.inferencia.estado).to.equal("activo"); });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,25 @@
+split,archivo_quitado,tipo,bits,split_original,archivo_original
+test,garbage__Que-es-la-contaminacion-de-basura-en-las-calles_jpg.rf.4a76d1f8f82c03be66813741d3c0d379.jpg,casi idéntico,0,val,garbage__ContaminaciC3B3n_en_Maracaibo2C_Venezuela_jpg.rf.6d737436a44e8328ceded3bcc2d554a1.jpg
+test,garbage__basura20calles20progreso20acapulco_jpg.rf.1a8e3f191fed01d50f87b9203a605a09.jpg,idéntico,0,train,garbage__basura20calles20progreso20acapulco_jpg.rf.36706d84fe59e1f8949b3b489c21d5c5.jpg
+test,garbage__basurainforme-711967mp4_711968_png.rf.ce37141f280de1acd05f2cff0a180976.jpg,idéntico,0,train,garbage__basurainforme-711967mp4_711968_png.rf.d1c7136379363d97f006fb930e428739.jpg
+test,garbage__depositphotos_250275118-stock-photo-garbage-dump-close-view2_jpg.rf.b463e220c48282590b4e8ed6f00e5def.jpg,casi idéntico,0,train,garbage__depositphotos_341852664-stock-photo-russia-may-14-2010-garbage3_jpg.rf.9019399136c6986400fa162262a74087.jpg
+test,garbage__image6_jpeg.rf.2d1281a079ca9a8e99c3152beb8a1a14.jpg,casi idéntico,0,train,garbage__16_jpg.rf.d600fb6406405235f648a9e5d873c45a.jpg
+test,garbage__images17_jpg.rf.45f9beaaf0ad7bdec352061046cf1f6d.jpg,casi idéntico,4,train,garbage__dC3ADcios-do-agregado-familiar-uma-pilha-lixo-na-o-problema-global-135045215_jpg.rf.31b405168cdaf8832c43b886d1ee5fbf.jpg
+test,garbage__images45_jpg.rf.9e0112dd87d2048983af07b2420c64bc.jpg,casi idéntico,0,train,garbage__-la-forC3AAt-qui-font-de-la-pollution-de-la-fumC3A9e-dans-la-nature-et-de-l-_jpg.rf.fadf77e1259cf2b4e4dc8cbd3801be9c.jpg
+test,garbage__pile-black-garbage-bag-and-bucket-roadside-in-the-city-picture-id936363766_jpg.rf.e1c28d83542c9730f6f4a2cf5d658630.jpg,casi idéntico,0,val,garbage__depositphotos_233412008-stock-photo-pile-black-garbage-bag-bucket3_jpg.rf.d028b68239e5dd7622e1ecb57269c501.jpg
+test,garbage__pollution-forC3AAts_jpg.rf.1851be03f2a79b8581a6e811fa3ebab0.jpg,casi idéntico,2,train,garbage__images33_jpg.rf.0ba35c082db646e7788fdcf8fe883fe1.jpg
+test,garbage__sqJu3jr_jpg.rf.6134a97bdfb40b33f5e51c6a1ab4b4c3.jpg,casi idéntico,0,train,garbage__images108_jpg.rf.60e0f682720e06d88c18562de7690577.jpg
+val,garbage__B9722456517Z-1_20200203151457_0002BG9SFEK924-1-0_jpg.rf.ca8bc08c3d2ada5c29abe247a55bbda2.jpg,casi idéntico,1,train,garbage__image17_jpeg.rf.c933b0d5c4a083618da30e5c9bd11297.jpg
+val,garbage__basura-slp_jpg.rf.ae627c35613afbbf881f0ee3ba0af07d.jpg,idéntico,0,train,garbage__basura-slp_jpg.rf.9afd9b66655e2afb319513c27062942d.jpg
+val,garbage__bbee0a79494329f5b1e63aa4862eda4149e966bcf1ca641d779fc64b819baf5d_jpg.rf.9fedbb9118fde10171b02e6dc74c5a7c.jpg,idéntico,0,train,garbage__bbee0a79494329f5b1e63aa4862eda4149e966bcf1ca641d779fc64b819baf5d_jpg.rf.05433bddaf793846a2ae7f787ffec53b.jpg
+val,garbage__depositphotos_215809622-stock-photo-pile-garbage-plastic-black-trash3_jpg.rf.f11393be008c425729249b2663dc8d1f.jpg,casi idéntico,1,train,garbage__pile-of-garbage-plastic-black-and-trash-bag-waste-many-on-the-floor-picture-id1154606528_jpg.rf.8b820078393381b535e5a3657981346c.jpg
+val,garbage__images102_jpg.rf.505027dcdd1ea19bc937f9464b24f6b0.jpg,casi idéntico,1,train,garbage__Basuras-en-BogotaCC81_jpg.rf.de8ed6689dce5a019c20f694a0396eaa.jpg
+val,garbage__images182_jpg.rf.5d5be1b86b97e9b858ba0aa7355f8511.jpg,casi idéntico,0,train,garbage__Basura-acumulada-en-las-calles-por-medida-de-Camioneros-1_jpg.rf.972419b24d46f081c47fe9f3a5355bb3.jpg
+val,garbage__images57_jpg.rf.aea79efd569e0aacc48ed2d9c1c55f2e.jpg,casi idéntico,0,train,garbage__images237_jpg.rf.6d17e2fe7addb8c5448b7ff0999dc208.jpg
+val,garbage__images64_jpg.rf.121e224dd8cf7712d784c3df84572c42.jpg,casi idéntico,1,train,garbage__rifiuti-roma-emergenza-immondizia-3_jpeg.rf.adad242763cff29e640cb73e900d320c.jpg
+val,garbage__stati-sul-marciapiede-in-attesa-di-raccolta-in-una-strada-di-new-york-hmmwmj_jpg.rf.f8f8bb74a36d9e419a0ef3b37fabdc3f.jpg,casi idéntico,1,train,garbage__ses-sur-le-trottoir-en-attente-de-collection-dans-une-rue-de-new-york-hmmwmj_jpg.rf.40ed4b817a26b3197fd84d1c25be511f.jpg
+val,garbage__tritus-laisses-ramasser-du-cote-rue-concept-elimination-dechets_127089-18754_jpg.rf.68c01aaf733351e60f4efd62c1d85e54.jpg,casi idéntico,0,train,garbage__images90_jpg.rf.c18ef8fa2ed2b8c6397a720a0d23fca0.jpg
+val,pothole__img_0004_jpg.rf.c83675ca675d65b80f7c62e1545e6449.jpg,casi idéntico,4,train,pothole__img_1733_jpg.rf.8caf8c374cf298b2168cc84845af201a.jpg
+val,pothole__img_0031_jpg.rf.1d17c5bb94f50b4078281d2a2e2816a4.jpg,casi idéntico,4,train,pothole__img_1763_jpg.rf.0ebb685428d75d12ae706056709bcb75.jpg
+val,pothole__img_0055_jpg.rf.92c3d4e7f07a0a1d2ac8d48f2bd81531.jpg,casi idéntico,2,train,pothole__img_1860_jpg.rf.fdec2b8ec1d9275ca82651ce355a83eb.jpg
+val,pothole__img_0075_jpg.rf.1d414ff6c6cb7707f34e59b2fdf4a2d8.jpg,casi idéntico,2,train,pothole__img_1667_jpg.rf.5a0169fda02aaf11e2e45bfe09f56fb5.jpg

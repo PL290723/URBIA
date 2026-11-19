@@ -1,0 +1,32 @@
+info:
+  name: "23 Historial completo"
+  type: http
+  seq: 23
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/{{id111}}/historial"
+  auth:
+    type: bearer
+    token: "{{tokenAdmin111}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const d = res.body.data;
+        const cambios = d.eventos.filter(e => e.tipo === "cambio_estado");
+        test("200, solo lectura y resuelto", () => { expect(res.status).to.equal(200); expect(d.solo_lectura).to.equal(true); expect(d.estado_actual).to.equal("resuelto"); });
+        test("4 eventos: creacion y 3 cambios", () => {
+          expect(d.total).to.equal(4);
+          expect(d.eventos.filter(e => e.tipo === "creacion")).to.have.lengthOf(1);
+          expect(cambios).to.have.lengthOf(3);
+        });
+        test("los cambios los hizo el administrador", () => cambios.forEach(e => expect(e.actor.rol).to.equal("administrador")));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

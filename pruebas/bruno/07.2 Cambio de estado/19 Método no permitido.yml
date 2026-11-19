@@ -1,0 +1,29 @@
+info:
+  name: "19 Método no permitido"
+  type: http
+  seq: 21
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/reportes/{{idEstadoSalto}}/estado"
+  body:
+    type: json
+    data: |-
+      {"estado": "en_revision"}
+  auth:
+    type: bearer
+    token: "{{tokenAdmin}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // PATCH es el único método de esta ruta
+        test("405", () => expect(res.status).to.equal(405));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

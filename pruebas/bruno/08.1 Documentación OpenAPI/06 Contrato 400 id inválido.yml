@@ -1,0 +1,29 @@
+info:
+  name: "06 Contrato 400 id inválido"
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/reportes/abc"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Ejemplo idInvalido de components.responses.SolicitudInvalida
+        test("400", () => expect(res.status).to.equal(400));
+        test("cuerpo igual al documentado", () => expect(res.body).to.eql({
+          success: false,
+          error: { code: "SOLICITUD_INVALIDA", message: "El identificador debe ser un entero positivo" }
+        }));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

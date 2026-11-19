@@ -1,0 +1,57 @@
+info:
+  name: "R1 Reporte a gestionar"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/reportes"
+  body:
+    type: multipart-form
+    data:
+      - name: foto
+        type: file
+        value:
+          - fotos/bache.jpeg
+        contentType: image/jpeg
+      - name: descripcion
+        type: text
+        value: "Bache que el municipio va a atender"
+      - name: latitud
+        type: text
+        value: "{{latEstado}}"
+      - name: longitud
+        type: text
+        value: "{{lonEstado}}"
+      - name: origen_ubicacion
+        type: text
+        value: "gps"
+      - name: precision_m
+        type: text
+        value: "10"
+      - name: id_categoria
+        type: text
+        value: "1"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Punto aleatorio para no mezclarse con reportes de otras pruebas
+        bru.setEnvVar("latEstado", (20.5000 + Math.random() * 0.03).toFixed(6));
+        bru.setEnvVar("lonEstado", (-100.8000 + Math.random() * 0.03).toFixed(6));
+    - type: tests
+      code: |-
+        test("201", () => expect(res.status).to.equal(201));
+        test("nace pendiente", () => expect(res.body.data.estado).to.equal("pendiente"));
+        if (res.status === 201) { bru.setEnvVar("idEstado", res.body.data.id_reporte); }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
